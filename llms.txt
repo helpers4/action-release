@@ -1,0 +1,5 @@
+# helpers4 release
+
+> GitHub Action that releases JS/TS packages with signed commits, tags and attestations, using only GITHUB_TOKEN and npm trusted publishing.
+
+Work in progress: see README.md.
