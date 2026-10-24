@@ -178,6 +178,18 @@ importers:
       '@actions/github':
         specifier: ^9.1.1
         version: 9.1.1
+      '@helpers4/commit':
+        specifier: ^3.1.5
+        version: 3.1.5
+      '@helpers4/node':
+        specifier: ^3.1.5
+        version: 3.1.5(@types/node@26.6.5)
+      '@helpers4/promise':
+        specifier: ^3.1.5
+        version: 3.1.5
+      '@helpers4/version':
+        specifier: ^3.1.5
+        version: 3.1.5
       package-manager-detector:
         specifier: ^1.9.0
         version: 1.9.0
@@ -440,6 +452,24 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@helpers4/commit@3.1.5':
+    resolution: {integrity: sha512-ZI+FJdLGfHw5Zf/K5WyFAOuvihjAwzGT90Sb5K5uSO+L9z7Ht3jk1JD9rhOfm+6XApJJl97WfehKnUAh4wn9kw==}
+    engines: {node: '>=26.0.0'}
+
+  '@helpers4/node@3.1.5':
+    resolution: {integrity: sha512-uzPFArc85ci8sFLl0Rj61zag3vDHyFEj+dZ56KchY7sSQzjEsiATx1lk7owJ/uW/Htl7iHt6IaQDeAcfUZTdXw==}
+    engines: {node: '>=26.0.0'}
+    peerDependencies:
+      '@types/node': '>=22'
+
+  '@helpers4/promise@3.1.5':
+    resolution: {integrity: sha512-71N37sdytunfV12XsrgaEdEksjrm1Hxqoufbv7hN6a2Ap02cQbAZC6sMx3Lm6irRKkCxgpKStDMH2/iDyN+daA==}
+    engines: {node: '>=26.0.0'}
+
+  '@helpers4/version@3.1.5':
+    resolution: {integrity: sha512-qD7CAithszX6Qq2R9g2eV2lvNPXzIyEwUoLGF3+cd2cinwAfHzGEegl7syJqGwAGckdoML7OnX7giABXuOFhEg==}
+    engines: {node: '>=26.0.0'}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -2355,6 +2385,16 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
+
+  '@helpers4/commit@3.1.5': {}
+
+  '@helpers4/node@3.1.5(@types/node@26.6.5)':
+    dependencies:
+      '@types/node': 26.6.5
+
+  '@helpers4/promise@3.1.5': {}
+
+  '@helpers4/version@3.1.5': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:

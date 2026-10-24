@@ -5,7 +5,7 @@
  */
 
 import semver from 'semver';
-import { parseCommit } from './conventional.js';
+import { analyzeCommits } from '@helpers4/commit';
 import type { CommitInfo } from './tags.js';
 
 export type Level = 'major' | 'minor' | 'patch';
@@ -26,14 +26,9 @@ export class NothingToReleaseError extends Error {
  */
 export function levelFromCommits(commits: readonly CommitInfo[], base: string): Level {
   const preMajor = semver.major(base) === 0;
-  let level: Level = 'patch';
-  for (const commit of commits) {
-    const parsed = parseCommit(commit);
-    if (!parsed) continue;
-    if (parsed.breaking) return preMajor ? 'minor' : 'major';
-    if (parsed.type === 'feat' && !preMajor) level = 'minor';
-  }
-  return level;
+  const { hasBreakingChanges, hasFeatures } = analyzeCommits(commits);
+  if (hasBreakingChanges) return preMajor ? 'minor' : 'major';
+  return hasFeatures && !preMajor ? 'minor' : 'patch';
 }
 
 /**
