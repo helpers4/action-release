@@ -1,0 +1,138 @@
+# This file is part of helpers4.
+# Copyright (C) 2025 baxyz
+# SPDX-License-Identifier: LGPL-3.0-or-later
+# Reusable workflow (level 1): the build job and the publish job, composed. The caller only
+# writes its trigger, its blockers and one call to this workflow.
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: auto, patch, minor, major, alpha, beta, rc or resume
+        type: string
+        default: auto
+      dry-run:
+        description: Stop before the tag is created
+        type: boolean
+        default: false
+      package:
+        description: Path of the published package, for monorepos
+        type: string
+        default: ""
+      setup:
+        description: Shell command run before the build, for tooling that cannot be detected
+        type: string
+        default: ""
+      build:
+        description: Build command, when it is not the package build script
+        type: string
+        default: ""
+      registries:
+        description: Comma-separated publication targets (npm, none); suffix with ? to make one optional
+        type: string
+        default: npm
+      environment:
+        description: GitHub environment declared by the npm trusted publisher
+        type: string
+        default: ""
+      carry:
+        description: Space-separated files carried from tag to tag
+        type: string
+        default: CHANGELOG.md
+      prepare:
+        description: Command run with RELEASE_VERSION set; it may only modify carried files
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: Released version
+        value: ${{ jobs.publish.outputs.version }}
+      tag:
+        description: Created tag
+        value: ${{ jobs.publish.outputs.tag }}
+      release-url:
+        description: URL of the GitHub Release
+        value: ${{ jobs.publish.outputs.release-url }}
+
+permissions: {}
+
+jobs:
+  # Runs the project's code (install, scripts, build): no token that can write, no OIDC.
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find the Node version
+        id: node
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          for dir in ${PACKAGE:+"$PACKAGE"} .; do
+            for f in .node-version .nvmrc; do
+              if [ -f "$dir/$f" ]; then echo "file=$dir/$f" >> "$GITHUB_OUTPUT"; exit 0; fi
+            done
+          done
+          for dir in ${PACKAGE:+"$PACKAGE"} .; do
+            if [ -f "$dir/package.json" ] && node -e "
+              const p = require('./$dir/package.json');
+              process.exit(p.engines?.node || p.devEngines?.runtime ? 0 : 1)"; then
+              echo "file=$dir/package.json" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          done
+          echo "version=lts/*" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ${{ steps.node.outputs.file }}
+          node-version: ${{ steps.node.outputs.version }}
+
+      - uses: helpers4/action-release@v0
+        with:
+          mode: build
+          bump: ${{ inputs.bump }}
+          package: ${{ inputs.package }}
+          setup: ${{ inputs.setup }}
+          build: ${{ inputs.build }}
+          registries: ${{ inputs.registries }}
+          carry: ${{ inputs.carry }}
+          prepare: ${{ inputs.prepare }}
+
+  # Runs no code of the project: it downloads the tarball and talks to GitHub and the registry.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # One release at a time per repository, queued rather than cancelled.
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      issues: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      release-url: ${{ steps.release.outputs.release-url }}
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+
+      - uses: helpers4/action-release@v0
+        id: release
+        with:
+          mode: publish
+          bump: ${{ inputs.bump }}
+          dry-run: ${{ inputs.dry-run }}
+          registries: ${{ inputs.registries }}
