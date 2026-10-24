@@ -1,0 +1,31 @@
+{
+  "name": "action-release",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "Signed releases of JS/TS packages without a GitHub App, secrets, or writes to the release branch",
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": { "node": ">=26" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@actions/artifact": "^6.3.1",
+    "@actions/attest": "^3.2.0",
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "package-manager-detector": "^1.9.0",
+    "semver": "^7.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/semver": "^7.7.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

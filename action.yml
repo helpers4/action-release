@@ -1,0 +1,76 @@
+# This file is part of helpers4.
+# Copyright (C) 2025 baxyz
+# SPDX-License-Identifier: LGPL-3.0-or-later
+name: helpers4 release
+description: Signed releases of JS/TS packages without a GitHub App, secrets, or writes to the release branch
+author: helpers4
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  mode:
+    description: >-
+      build: compute the version, build, pack, dry-run and upload the release artifact (needs only contents: read).
+      publish: tag, publish and create the GitHub Release from that artifact, without running any project code.
+      check: run the release checks that do not depend on the next version (for pull requests).
+    required: false
+    default: build
+  bump:
+    description: auto, patch, minor, major, alpha, beta, rc or resume
+    required: false
+    default: auto
+  dry-run:
+    description: Run every step that does not make the release irreversible, and stop before the tag
+    required: false
+    default: "false"
+  package:
+    description: Path of the published package, for monorepos (default is the repository root)
+    required: false
+    default: ""
+  setup:
+    description: Shell command run before the build, for tooling that cannot be detected
+    required: false
+    default: ""
+  build:
+    description: Build command, when it is not the package "build" script
+    required: false
+    default: ""
+  registries:
+    description: Comma-separated publication targets, npm or none. Suffix a target with ? to make its failure non-blocking
+    required: false
+    default: npm
+  environment:
+    description: GitHub environment declared by the npm trusted publisher, if any
+    required: false
+    default: ""
+  carry:
+    description: Space-separated files carried from tag to tag (restored from the previous release, then committed in the release commit)
+    required: false
+    default: CHANGELOG.md
+  prepare:
+    description: Command run with RELEASE_VERSION set, which may only modify the files listed in carry
+    required: false
+    default: ""
+  include-build:
+    description: Also commit the build output of this action into the release commit and move the floating major tag. Only for repositories with action.yml at the root
+    required: false
+    default: auto
+  github-token:
+    description: Token used for the GitHub API
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: Released version, without the leading v
+  tag:
+    description: Created tag
+  release-url:
+    description: URL of the GitHub Release
+  published:
+    description: JSON object telling, for each registry, whether the version was published
+
+runs:
+  using: node26
+  main: dist/index.mjs
