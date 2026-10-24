@@ -5,9 +5,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const IDENTITY = {
   GIT_AUTHOR_NAME: 'test',
@@ -36,6 +36,12 @@ export class TempRepo {
     }).trim();
   }
 
+  /** Writes a file in the working tree, creating its folders. */
+  write(file: string, content: string): void {
+    mkdirSync(dirname(join(this.dir, file)), { recursive: true });
+    writeFileSync(join(this.dir, file), content);
+  }
+
   /** Commits a new file with `message` on the current branch and returns its sha. */
   commit(message: string): string {
     writeFileSync(join(this.dir, `f${this.counter++}.txt`), message);
@@ -48,9 +54,10 @@ export class TempRepo {
    * Creates a release commit on no branch: a child of `parent` tagged `tag`. The current
    * branch is left untouched.
    */
-  release(tag: string, parent = 'HEAD'): string {
+  release(tag: string, parent = 'HEAD', files: Record<string, string> = {}): string {
     const branch = this.git('rev-parse', '--abbrev-ref', 'HEAD');
     this.git('checkout', '-q', '--detach', parent);
+    for (const [file, content] of Object.entries(files)) this.write(file, content);
     const sha = this.commit(`chore(release): 🔖 ${tag}`);
     this.git('tag', tag, sha);
     this.git('checkout', '-q', branch);

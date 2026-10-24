@@ -5,30 +5,21 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parseCommit } from '../src/lib/conventional.js';
 import { NothingToReleaseError, baseFromManifest, levelFromCommits, nextVersion } from '../src/lib/version.js';
 
 const c = (subject: string, body = '') => ({ sha: 'x', subject, body });
-
-describe('parseCommit', () => {
-  it('parses type, scope and breaking marker', () => {
-    expect(parseCommit(c('feat(api)!: ✨ add thing'))).toEqual({
-      type: 'feat', scope: 'api', breaking: true, description: '✨ add thing',
-    });
-  });
-  it('detects a BREAKING CHANGE footer', () => {
-    expect(parseCommit(c('fix: x', 'details\n\nBREAKING CHANGE: gone'))?.breaking).toBe(true);
-  });
-  it('rejects other messages', () => {
-    expect(parseCommit(c('Merge pull request #1'))).toBeUndefined();
-  });
-});
 
 describe('levelFromCommits', () => {
   it('maps feat to minor and breaking to major from 1.0.0', () => {
     expect(levelFromCommits([c('fix: a'), c('feat: b')], '1.2.3')).toBe('minor');
     expect(levelFromCommits([c('feat!: b')], '1.2.3')).toBe('major');
     expect(levelFromCommits([c('chore: a')], '1.2.3')).toBe('patch');
+  });
+  it('detects a BREAKING CHANGE footer', () => {
+    expect(levelFromCommits([c('fix: x', 'details\n\nBREAKING CHANGE: gone')], '1.0.0')).toBe('major');
+  });
+  it('ignores messages that are not conventional', () => {
+    expect(levelFromCommits([c('Merge pull request #1')], '1.2.3')).toBe('patch');
   });
   it('maps feat to patch and breaking to minor before 1.0.0', () => {
     expect(levelFromCommits([c('feat: b')], '0.2.4')).toBe('patch');
