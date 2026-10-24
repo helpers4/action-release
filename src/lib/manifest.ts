@@ -45,6 +45,8 @@ export interface ReleaseManifest {
   package: { name: string; dir: string };
   /** Tarball file name inside the artifact. */
   tarball: string;
+  /** SHA-256 of the tarball: the publish job refuses bytes that differ from what was built. */
+  sha256: string;
   distTag: string;
   latest: boolean;
   prerelease: boolean;
@@ -53,6 +55,8 @@ export interface ReleaseManifest {
   files: string[];
   notes: string;
   sbom?: string;
+  /** Directory of build output added to the release commit (actions only); enables the floating major tag. */
+  includeBuild?: string;
 }
 
 /** A `resume` run rebuilds nothing: the publish job works from the tag and its draft Release. */
