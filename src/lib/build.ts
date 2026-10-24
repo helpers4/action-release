@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, relative, resolve } from 'node:path';
 import { resolveCommand } from 'package-manager-detector';
@@ -253,6 +254,7 @@ export async function buildRelease(options: BuildOptions): Promise<ReleaseManife
     bump: bump as ReleaseManifest['bump'],
     package: { name, dir: options.packageRel },
     tarball,
+    sha256: createHash('sha256').update(readFileSync(join(outDir, tarball))).digest('hex'),
     distTag: dist.tag,
     latest: dist.latest,
     prerelease: semver.prerelease(version) !== null,
@@ -260,6 +262,7 @@ export async function buildRelease(options: BuildOptions): Promise<ReleaseManife
     files: [...files].sort(),
     notes: 'notes.md',
     sbom,
+    includeBuild: buildDir,
   };
   writeFileSync(join(outDir, 'release.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
