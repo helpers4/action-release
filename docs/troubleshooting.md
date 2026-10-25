@@ -33,6 +33,14 @@ npm holds a higher stable version than every release tag, so the next version ca
 safely. Tag the commit that was published (`git tag v1.2.3 <commit> && git push origin v1.2.3`), or
 release with an explicit `bump`.
 
+## attestation-failed
+
+Signing the tarball failed after the tag was created, so the release is incomplete: the tag and a
+draft Release remain. Typical causes: the job lacks `id-token: write` or `attestations: write`, or
+the repository is private on a plan without artifact attestations (the API answers "Feature not
+available for the organization"). Fix the cause (grant the permissions, upgrade the plan, or make
+the repository public), then run the release again with `bump: resume`.
+
 ## immutable-releases
 
 Immutable releases make a published release's tag and assets permanent. Enable them in

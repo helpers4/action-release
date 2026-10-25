@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import semver from 'semver';
 import type { Gh, ReleaseInfo } from './github.js';
 import type { ReleaseManifest, ResumeManifest } from './manifest.js';
-import { preflight, workflowsUnchanged, type PreflightDeps } from './preflight.js';
+import { DOCS, preflight, workflowsUnchanged, type PreflightDeps } from './preflight.js';
 import { planResume } from './registries.js';
 
 export interface PublishDeps extends PreflightDeps {
@@ -131,7 +131,16 @@ async function finish(
   const { gh } = deps;
   const assets = await gh.listAssets(draft.id);
   if (!assets.some((a) => a.name === bundleName(manifest.tarball))) {
-    const bundle = await deps.attest({ name: manifest.tarball, sha256: manifest.sha256 });
+    let bundle: Buffer;
+    try {
+      bundle = await deps.attest({ name: manifest.tarball, sha256: manifest.sha256 });
+    } catch (error) {
+      throw new ReleaseStoppedError(
+        `The tarball could not be attested: ${error instanceof Error ? error.message : String(error)}\n` +
+          `The tag ${manifest.tag} and the draft Release are kept: fix the cause and run the release again with bump: resume. ` +
+          `See ${DOCS}#attestation-failed`,
+      );
+    }
     await gh.uploadAsset(draft.id, bundleName(manifest.tarball), bundle);
   }
 
