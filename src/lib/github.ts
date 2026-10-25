@@ -280,7 +280,7 @@ export function createGh(octokit: Octokit, owner: string, repo: string): Gh {
         release_id: release,
         name,
         data: data as unknown as string,
-        headers: { 'content-type': 'application/octet-stream', 'content-length': data.length },
+        headers: { 'content-type': 'application/octet-stream' },
       });
     },
 
