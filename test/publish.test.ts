@@ -155,6 +155,19 @@ describe('publishRelease', () => {
       expect(h.gh.assetNames(draft.id).filter((n) => n.endsWith('.sigstore.json'))).toHaveLength(1);
     });
 
+    it('keeps the draft and explains how to resume when the attestation fails', async () => {
+      const h = harness();
+      h.deps.attest = async () => {
+        throw new Error('Feature not available for the organization');
+      };
+      await expect(publishRelease(h.deps, options(artifact().dir))).rejects.toThrow(
+        /could not be attested: Feature not available.*bump: resume.*attestation-failed/s,
+      );
+      expect(h.gh.releases[0]!.draft).toBe(true);
+      expect(h.npmPublished).toHaveLength(0);
+      expect(h.gh.tags.has('v1.2.3')).toBe(true);
+    });
+
     it('does not publish again what the registry already serves', async () => {
       const h = harness();
       h.npm.failPublish = true;
