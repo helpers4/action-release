@@ -5,7 +5,7 @@ Inherits the org-wide rules from [helpers4/.dev AGENTS.md](https://github.com/he
 
 ## Layout
 
-- `action.yml` — action manifest (`runs.using: node26`, entry `dist/index.mjs`)
+- `action.yml` — action manifest (`runs.using: node24`, entry `dist/index.mjs`)
 - `src/main.ts` — dispatches on the `mode` input (`build`, `publish`, `check`)
 - `src/modes/` — one file per mode
 - `scripts/build.mjs` — esbuild bundle into `dist/`

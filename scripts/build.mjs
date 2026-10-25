@@ -13,7 +13,7 @@ await build({
   outfile: 'dist/index.mjs',
   bundle: true,
   platform: 'node',
-  target: 'node26',
+  target: 'node24',
   format: 'esm',
   sourcemap: true,
   legalComments: 'linked',

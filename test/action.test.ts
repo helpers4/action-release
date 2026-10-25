@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest';
 describe('action.yml', () => {
   const manifest = readFileSync(new URL('../action.yml', import.meta.url), 'utf8');
 
-  it('runs the bundled entry point on node26', () => {
-    expect(manifest).toContain('using: node26');
+  it('runs the bundled entry point on node24', () => {
+    expect(manifest).toContain('using: node24');
     expect(manifest).toContain('main: dist/index.mjs');
   });
 

@@ -72,5 +72,5 @@ outputs:
     description: JSON object telling, for each registry, whether the version was published
 
 runs:
-  using: node26
+  using: node24
   main: dist/index.mjs
