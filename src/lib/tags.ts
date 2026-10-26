@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import semver from 'semver';
+import * as semver from './semver.js';
 import { git, isAncestor } from './git.js';
 
 export interface ReleaseTag {
@@ -24,10 +24,11 @@ export function listReleaseTags(cwd: string): ReleaseTag[] {
   const names = git(cwd, 'tag', '--list', 'v*').split('\n').filter(Boolean);
   const tags: ReleaseTag[] = [];
   for (const tag of names) {
-    const version = semver.valid(tag.slice(1));
-    if (version && tag === `v${version}`) tags.push({ tag, version });
+    const version = tag.slice(1);
+    if (semver.isValid(version)) tags.push({ tag, version });
   }
-  return tags.sort((a, b) => semver.rcompare(a.version, b.version));
+  const order = semver.sortDescending(tags.map((t) => t.version));
+  return tags.sort((a, b) => order.indexOf(a.version) - order.indexOf(b.version));
 }
 
 /**
@@ -50,7 +51,7 @@ export function findLastRelease(
   const head = options.head ?? 'HEAD';
   return listReleaseTags(cwd).find(
     ({ tag, version }) =>
-      (options.prerelease || !semver.prerelease(version)) && belongsToLine(cwd, tag, head),
+      (options.prerelease || semver.isStable(version)) && belongsToLine(cwd, tag, head),
   );
 }
 

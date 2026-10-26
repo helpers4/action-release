@@ -20,16 +20,11 @@
     "@actions/attest": "^3.2.0",
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
-    "@helpers4/commit": "^3.1.5",
-    "@helpers4/node": "^3.1.5",
-    "@helpers4/promise": "^3.1.5",
-    "@helpers4/version": "^3.1.5",
-    "package-manager-detector": "^1.9.0",
-    "semver": "^7.8.5"
+    "helpers4": "^3.1.9",
+    "package-manager-detector": "^1.9.0"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
-    "@types/semver": "^7.7.1",
     "esbuild": "^0.28.2",
     "git-cliff": "^2.14.2",
     "typescript": "^7.0.2",

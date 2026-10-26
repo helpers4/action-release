@@ -19,7 +19,7 @@ import { parseRegistries } from './registries.js';
 import { run, runShell, type RunOptions } from './run.js';
 import { commitsInRange, findLastRelease, listReleaseTags } from './tags.js';
 import { baseFromManifest, nextVersion, type Bump } from './version.js';
-import semver from 'semver';
+import * as semver from './semver.js';
 
 export interface BuildOptions {
   repoDir: string;
@@ -257,7 +257,7 @@ export async function buildRelease(options: BuildOptions): Promise<ReleaseManife
     sha256: createHash('sha256').update(readFileSync(join(outDir, tarball))).digest('hex'),
     distTag: dist.tag,
     latest: dist.latest,
-    prerelease: semver.prerelease(version) !== null,
+    prerelease: semver.isPrerelease(version),
     registries,
     files: [...files].sort(),
     notes: 'notes.md',
