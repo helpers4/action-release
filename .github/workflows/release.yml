@@ -1,7 +1,7 @@
 # This file is part of helpers4.
 # Copyright (C) 2025 baxyz
 # SPDX-License-Identifier: LGPL-3.0-or-later
-# Reusable workflow (level 1): the build job and the publish job, composed. The caller only
+# Reusable workflow (shortcut): the build job and the publish job, composed. The caller only
 # writes its trigger, its blockers and one call to this workflow.
 name: Release
 

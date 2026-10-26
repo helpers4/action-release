@@ -25,7 +25,10 @@ main ── a1b2 ── c3d4 ── e5f6          normal commits
 - **Recoverable**: the tag is the lock and is created *before* anything is published. If a
   registry fails, run the release again with `bump: resume`: the same tarball is published.
 
-## Quick start (level 1: reusable workflow)
+## Quick start
+
+The action runs in two jobs, because GitHub grants permissions per job. The first job runs your
+code, the second one can write and sign and runs none of it.
 
 ```yaml
 # .github/workflows/release.yml
@@ -46,20 +49,44 @@ permissions: {}
 
 jobs:
   checks:
-    uses: ./.github/workflows/ci.yml        # your own blockers, unchanged
+    uses: ./.github/workflows/ci.yml          # your own blockers (needs `on: workflow_call:`)
     permissions: { contents: read }
 
-  release:
+  build:
     needs: checks
-    uses: helpers4/action-release/.github/workflows/release.yml@v0
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      # … your setup: Node, pnpm, Rust, wasm-bindgen …
+      - uses: actions/setup-node@v7
+        with: { node-version-file: .node-version }
+      - uses: helpers4/action-release@v0
+        with: { mode: build, bump: "${{ inputs.bump }}" }
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency: { group: "release-${{ github.repository }}", cancel-in-progress: false }
     permissions: { contents: write, id-token: write, attestations: write, issues: write, pull-requests: write }
-    with:
-      bump: ${{ inputs.bump }}
-      dry-run: ${{ inputs.dry-run }}
+    steps:
+      - uses: actions/setup-node@v7
+        with: { node-version: lts/* }           # npm 11.5.1 or later
+      - uses: helpers4/action-release@v0
+        with: { mode: publish, bump: "${{ inputs.bump }}", dry-run: "${{ inputs.dry-run }}" }
 ```
 
-`ci.yml` needs an `on: workflow_call:` trigger to serve as a blocker. Everything else is
-detected; the optional inputs only correct the detection.
+### What each mode does
+
+| Mode | Job permissions | Runs your code? | What it does |
+| --- | --- | --- | --- |
+| `build` | `contents: read` | yes | computes the version, installs, runs `setup` and `build`, generates the changelog, packs **one tarball**, dry-runs `npm publish`, uploads everything as the `h4-release` artifact |
+| `publish` | write, OIDC, attestations | **no** | downloads the artifact and checks its sha256, runs the preflight, creates the release commit, checks the workflows, creates the tag, attests, publishes to npm, publishes the Release |
+| `check` | `contents: read` | no | the checks that do not depend on the next version: put it in your pull request CI |
+
+Two jobs because a single one would give a `postinstall` script of any dependency the token that
+can publish. The tarball published is the one built and dry-run in `build`, never a rebuilt one.
 
 ### One-time setup
 
@@ -76,36 +103,24 @@ detected; the optional inputs only correct the detection.
 
 The release starts from your latest `v*` tag; existing tags remain the base.
 
-## Level 2: the action, in your own jobs
+## Shortcut: the reusable workflow
 
-When the build does not fit the reusable workflow (matrix, container, several packages), write the
-jobs yourself and call the action twice:
+For a simple project, one call replaces the `build` and `publish` jobs above. It detects Node and
+the package manager, and takes the same inputs (`package`, `setup`, `build`, `environment`, …):
 
 ```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions: { contents: read }
-    steps:
-      - uses: actions/checkout@v7
-        with: { fetch-depth: 0, persist-credentials: false }
-      # … any setup you need (Node, Rust, wasm-bindgen …) …
-      - uses: helpers4/action-release@v0
-        with: { mode: build, bump: "${{ inputs.bump }}" }
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
+  release:
+    needs: checks
+    uses: helpers4/action-release/.github/workflows/release.yml@v0
     permissions: { contents: write, id-token: write, attestations: write, issues: write, pull-requests: write }
-    steps:
-      - uses: actions/setup-node@v7
-        with: { node-version: lts/* }         # npm 11.5.1 or later
-      - uses: helpers4/action-release@v0
-        with: { mode: publish, bump: "${{ inputs.bump }}" }
+    with:
+      bump: ${{ inputs.bump }}
+      dry-run: ${{ inputs.dry-run }}
 ```
 
-The two modes pass the build through an artifact (`h4-release`). A third mode, `check`, runs the
-checks that do not depend on the next version: put it in your pull request CI.
+GitHub requires the full path for a reusable workflow; it is the only reason this form is longer.
+Choose the action itself (above) when the build needs a matrix, a container, several packages or
+specific tooling. With the shortcut, verify attestations with `--signer-repo` (see below).
 
 ## Examples
 
@@ -123,21 +138,31 @@ exists and already copies the version and the changelog into `dist/`).
 
 ### folioscope: pnpm monorepo, Rust and WebAssembly
 
+The action itself, because the build needs tooling the reusable workflow cannot guess. Only the
+`build` job differs from the quick start:
+
 ```yaml
-  release:
+  build:
     needs: checks
-    uses: helpers4/action-release/.github/workflows/release.yml@v0
-    permissions: { contents: write, id-token: write, attestations: write, issues: write, pull-requests: write }
-    with:
-      bump: ${{ inputs.bump }}
-      environment: npm                     # the one of the npm trusted publisher
-      package: packages/folioscope
-      setup: cargo install wasm-bindgen-cli --version 0.2.129 --locked
-      build: pnpm --filter folioscope build:wasm && pnpm --filter folioscope build
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v7
+        with: { node-version-file: .node-version }
+      - run: rustup show active-toolchain || rustup toolchain install   # rust-toolchain.toml
+      - uses: taiki-e/install-action@v2
+        with: { tool: "wasm-bindgen@0.2.129" }   # a binary, instead of compiling wasm-bindgen-cli
+      - uses: helpers4/action-release@v0
+        with:
+          mode: build
+          bump: ${{ inputs.bump }}
+          package: packages/folioscope
+          build: pnpm --filter folioscope build:wasm && pnpm --filter folioscope build
 ```
 
-Explicit because it cannot be guessed: `package` (monorepo), `environment` (declared by the
-trusted publisher), `setup` (`wasm-bindgen`), `build` (the root script builds the whole monorepo).
+The `publish` job also sets `environment: npm` (the one of the npm trusted publisher).
 
 ## Inputs
 

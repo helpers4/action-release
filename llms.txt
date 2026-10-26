@@ -2,7 +2,7 @@
 
 > GitHub Action (and reusable workflow) that releases JS/TS packages with a signed release commit created through the API on no branch, a tag used as a lock, a tarball built once, attested and published to npm with OIDC trusted publishing. It needs no GitHub App and no secret, and never writes to the release branch.
 
-Use `helpers4/action-release/.github/workflows/release.yml@v0` (level 1: reusable workflow, one call) or `helpers4/action-release@v0` with `mode: build` then `mode: publish` in your own jobs (level 2). `mode: check` runs the version-independent checks in pull requests.
+Use `helpers4/action-release@v0` with `mode: build` in a job that runs your code (`contents: read`), then `mode: publish` in a second job that can write and sign. For simple projects, the reusable workflow `helpers4/action-release/.github/workflows/release.yml@v0` wraps both jobs in one call. `mode: check` runs the version-independent checks in pull requests.
 
 ## Key facts
 
