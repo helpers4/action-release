@@ -25,7 +25,7 @@ Inherits the org-wide rules from [helpers4/.dev AGENTS.md](https://github.com/he
   branch head), so it references the action by its floating major tag (`@v0`; change it to `@v1` in a pull
   request before releasing 1.0.0).
 - Logic that talks to GitHub goes through the `Gh` interface so tests use the in-memory `FakeGh`.
-- Prefer helpers4 packages (`@helpers4/commit`, `@helpers4/promise`, `@helpers4/node`, `@helpers4/version`) over
+- Prefer the `helpers4` package (`helpers4/commit`, `helpers4/promise`, `helpers4/version` …) over
   new code, and report missing helpers instead of duplicating them.
 - Tests: `pnpm test` runs unit tests and builds real temporary git repositories; it needs no network
   except `npm install --package-lock-only` in the build fixtures. End-to-end runs use the sandbox repository

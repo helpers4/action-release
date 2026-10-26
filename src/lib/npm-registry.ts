@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import { fetchJson, HttpError } from '@helpers4/promise';
+import { fetchJson, HttpError } from 'helpers4/promise';
 
 export type VersionFetcher = (name: string) => Promise<string[] | undefined>;
 

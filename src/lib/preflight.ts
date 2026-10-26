@@ -5,7 +5,7 @@
  */
 
 import { posix } from 'node:path';
-import semver from 'semver';
+import * as semver from './semver.js';
 import type { Gh, TagRuleset } from './github.js';
 import type { ReleaseManifest } from './manifest.js';
 import type { VersionFetcher } from './npm-registry.js';
@@ -73,13 +73,13 @@ export async function preflight(
         ),
       );
     }
-    const npm = semver.coerce(deps.npmVersion());
-    if (!npm || semver.lt(npm, MIN_NPM)) {
+    const npm = deps.npmVersion().trim();
+    if (!semver.isValid(npm) || semver.lt(npm, MIN_NPM)) {
       problems.push(
         problem(
           'error',
           'npm-too-old',
-          `npm ${npm?.version ?? 'unknown'} cannot publish with trusted publishing; npm ${MIN_NPM} or later is required. Use a Node version that ships it, or run \`npm install -g npm@latest\` first.`,
+          `npm ${npm || 'unknown'} cannot publish with trusted publishing; npm ${MIN_NPM} or later is required. Use a Node version that ships it, or run \`npm install -g npm@latest\` first.`,
         ),
       );
     }
@@ -99,8 +99,7 @@ export async function preflight(
           problem('error', 'version-published', `${manifest.package.name}@${manifest.version} is already on npm. A published version can never be reused: release again to get the next number.`),
         );
       }
-      const stable = (versions: string[]) =>
-        versions.filter((v) => semver.valid(v) && !semver.prerelease(v)).sort(semver.rcompare)[0];
+      const stable = (versions: string[]) => semver.sortDescending(versions.filter(semver.isStable))[0];
       const tags = (await gh.listTags('v')).map((t) => t.slice(1));
       const npmTop = stable(published);
       const tagTop = stable(tags);

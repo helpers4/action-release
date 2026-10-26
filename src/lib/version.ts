@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import semver from 'semver';
-import { analyzeCommits } from '@helpers4/commit';
+import * as semver from './semver.js';
+import { analyzeCommits } from 'helpers4/commit';
+import { parse } from 'helpers4/version';
 import type { CommitInfo } from './tags.js';
 
 export type Level = 'major' | 'minor' | 'patch';
@@ -36,8 +37,8 @@ export function levelFromCommits(commits: readonly CommitInfo[], base: string): 
  * prerelease suffix (a `0.0.0-development` placeholder starts from `0.0.0`).
  */
 export function baseFromManifest(manifestVersion: string | undefined): string {
-  const parsed = manifestVersion ? semver.parse(manifestVersion) : null;
-  return parsed ? `${parsed.major}.${parsed.minor}.${parsed.patch}` : '0.0.0';
+  if (!manifestVersion || !semver.isValid(manifestVersion)) return '0.0.0';
+  return `${semver.major(manifestVersion)}.${semver.minor(manifestVersion)}.${semver.patch(manifestVersion)}`;
 }
 
 export interface NextVersionInput {
@@ -56,15 +57,16 @@ export interface NextVersionInput {
 export function nextVersion(input: NextVersionInput): string {
   const { base, bump, commits, hasRelease, existing } = input;
   if (bump === 'patch' || bump === 'minor' || bump === 'major') {
-    return semver.inc(base, bump)!;
+    return semver.inc(base, bump);
   }
   if (commits.length === 0 && hasRelease) throw new NothingToReleaseError(base);
-  const target = semver.inc(base, levelFromCommits(commits, base))!;
+  const target = semver.inc(base, levelFromCommits(commits, base));
   if (bump === 'auto') return target;
   const counter = existing
-    .map((version) => semver.parse(version))
-    .filter((v) => v && `${v.major}.${v.minor}.${v.patch}` === target && v.prerelease[0] === bump)
-    .map((v) => Number(v!.prerelease[1] ?? 0))
+    .filter((v) => semver.isValid(v))
+    .map((version) => parse(version))
+    .filter((v) => `${v.major}.${v.minor}.${v.patch}` === target && v.prerelease[0] === bump)
+    .map((v) => Number(v.prerelease[1] ?? 0))
     .reduce((max, n) => Math.max(max, n), 0);
   return `${target}-${bump}.${counter + 1}`;
 }

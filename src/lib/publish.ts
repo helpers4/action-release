@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import semver from 'semver';
+import * as semver from './semver.js';
 import type { Gh, ReleaseInfo } from './github.js';
 import type { ReleaseManifest, ResumeManifest } from './manifest.js';
 import { DOCS, preflight, workflowsUnchanged, type PreflightDeps } from './preflight.js';
@@ -203,7 +203,7 @@ async function afterRelease(
       const major = semver.major(manifest.version);
       const siblings = (await deps.gh.listTags(`v${major}.`))
         .map((t) => t.slice(1))
-        .filter((v) => semver.valid(v) && !semver.prerelease(v));
+        .filter(semver.isStable);
       if (siblings.every((v) => !semver.gt(v, manifest.version))) {
         await deps.gh.forceTag(`v${major}`, commit);
         deps.log(`Moved the floating tag v${major} to ${manifest.tag}.`);
