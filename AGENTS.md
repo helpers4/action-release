@@ -10,7 +10,7 @@ Inherits the org-wide rules from [helpers4/.dev AGENTS.md](https://github.com/he
 - `src/modes/` — one file per mode (`build`, `publish`, `check`)
 - `src/lib/` — logic: `tags` (last release, range), `version`, `dist-tag`, `registries` (incl. resume plan),
   `changelog` (git-cliff), `build`, `preflight`, `publish`, `github` (the GitHub operations behind one interface)
-- `.github/workflows/release.yml` — reusable workflow (level 1); `self-release.yml` releases this action
+- `.github/workflows/release.yml` — reusable workflow (shortcut around the action); `self-release.yml` releases this action
 - `docs/troubleshooting.md` — one section per preflight code; keep in sync with `preflight.ts` and `check.ts`
 - `scripts/build.mjs` — esbuild bundle into `dist/`
 - `test/` — vitest
