@@ -31,6 +31,15 @@ describe('generateSection', () => {
     expect(section).not.toContain('# Changelog');
   });
 
+  it('does not run the tool from the repository (npx would obey its package manager pins)', () => {
+    repo = new TempRepo();
+    repo.commit('feat: one');
+    writeFileSync(`${repo.dir}/package.json`, '{"devEngines":{"packageManager":{"name":"pnpm"}}}');
+    const fromAnotherDirectory = ['sh', '-c', 'test ! -e package.json && exec "$0" "$@"', cliff[0]!];
+    const section = generateSection({ cwd: repo.dir, last: undefined, tag: 'v0.1.0', cliff: fromAnotherDirectory });
+    expect(section).toContain('One');
+  });
+
   it('prefers the repository cliff.toml', () => {
     repo = new TempRepo();
     repo.commit('feat: one');

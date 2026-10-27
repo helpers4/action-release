@@ -23,7 +23,9 @@ export interface SectionInput {
 /**
  * The changelog section for `last..HEAD`, rendered by git-cliff with an explicit range (tags
  * are not ancestors of the branch, so cliff cannot discover the range itself). Uses the
- * repository's cliff.toml when there is one.
+ * repository's cliff.toml when there is one. The tool runs from a scratch directory, not from the
+ * repository: `npx` there would obey the project's package manager pins (devEngines, packageManager)
+ * and refuse to run.
  */
 export function generateSection(input: SectionInput): string {
   const { cwd, last, tag, cliff = ['git-cliff'] } = input;
@@ -37,8 +39,8 @@ export function generateSection(input: SectionInput): string {
     const [command, ...prefix] = cliff;
     return execFileSync(
       command!,
-      [...prefix, '--config', config, '--tag', tag, '--strip', 'all', '--unreleased', ...(last ? [`${last}..HEAD`] : [])],
-      { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      [...prefix, '--repository', cwd, '--config', config, '--tag', tag, '--strip', 'all', '--unreleased', ...(last ? [`${last}..HEAD`] : [])],
+      { cwd: scratch, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
     ).trim();
   } finally {
     rmSync(scratch, { recursive: true, force: true });
