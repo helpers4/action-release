@@ -1,6 +1,6 @@
 {
   "name": "action-release",
-  "version": "0.0.0-development",
+  "version": "0.1.3",
   "private": true,
   "description": "Signed releases of JS/TS packages without a GitHub App, secrets, or writes to the release branch",
   "license": "LGPL-3.0-or-later",
