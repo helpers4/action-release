@@ -13,6 +13,7 @@ import { createGh } from '../lib/github.js';
 import { npmVersion, publishToNpm } from '../lib/npm.js';
 import { fetchNpmVersions } from '../lib/npm-registry.js';
 import { publishRelease } from '../lib/publish.js';
+import { renderSummary } from '../lib/summary.js';
 import { ARTIFACT_NAME, readBump } from './build.js';
 
 export async function runPublish(): Promise<void> {
@@ -44,4 +45,8 @@ export async function runPublish(): Promise<void> {
   core.setOutput('tag', result.tag);
   core.setOutput('release-url', result.releaseUrl ?? '');
   core.setOutput('published', JSON.stringify(result.published));
+
+  const summary = renderSummary(result, `${owner}/${repo}`);
+  core.notice(summary.headline);
+  await core.summary.addRaw(summary.markdown).write();
 }

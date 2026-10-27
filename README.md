@@ -227,6 +227,20 @@ If `action.yml` is at the repository root, `include-build: auto` adds the build 
 the release commit, so `dist/` lives in tags only and never on your branch, and the floating major
 tag (`v1`) is moved to each stable release. This action releases itself this way.
 
+## Seeing the tag from git
+
+The release commit is on no branch, so a plain `git fetch` does not download its tag (git only
+follows tags that point into the history it fetches). The tag exists on GitHub; ask for it:
+
+```bash
+git fetch --tags          # or: git fetch origin tag v1.2.3
+git show v1.2.3           # the release commit: parent = the tested commit
+```
+
+`git describe` and tools that read tags need that fetch first. In CI, `actions/checkout` with
+`fetch-depth: 0` already fetches all tags. The commit shows as *Verified* on GitHub; locally git
+reports it unverified (`E`) unless GitHub's signing key is imported.
+
 ## Verifying a release
 
 ```bash
