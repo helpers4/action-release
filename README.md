@@ -254,6 +254,13 @@ With the reusable workflow, the signing certificate is the one of `helpers4/acti
 is why `--repo` alone does not match. The Release also carries `release.json`, the SBOM
 (`sbom.cdx.json`) and the Sigstore bundle (`*.sigstore.json`).
 
+## Pinning the action version
+
+The reusable workflow calls the action as `helpers4/action-release@v0`, the floating major tag.
+Before the first `1.0.0`, change that reference to `@v1` in `.github/workflows/release.yml` with
+a normal pull request: a release commit cannot modify workflows, so the tag of `1.0.0` would
+otherwise keep calling `v0`.
+
 ## Requirements and limits
 
 - GitHub-hosted runners (trusted publishing does not support self-hosted), npm 11.5.1 or later,

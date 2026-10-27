@@ -113,6 +113,19 @@ describe('publishRelease', () => {
     expect(h.logs.join('\n')).toMatch(/placeholder-version/);
   });
 
+  it('warns when the published Release turns out not to be immutable, even if the setting was unreadable', async () => {
+    const h = harness();
+    h.gh.immutable = undefined;
+    await publishRelease(h.deps, options(artifact().dir));
+    expect(h.logs.join('\n')).toMatch(/cannot read the immutable releases setting/);
+    expect(h.warnings.join('\n')).not.toMatch(/immutable-releases/);
+
+    const h2 = harness();
+    h2.gh.immutable = false;
+    await publishRelease(h2.deps, options(artifact().dir));
+    expect(h2.warnings.join('\n')).toMatch(/v1\.2\.3 is not immutable/);
+  });
+
   it('publishes a prerelease without making it latest', async () => {
     const h = harness();
     await publishRelease(
@@ -178,6 +191,16 @@ describe('publishRelease', () => {
       await publishRelease(h.deps, options(resume.dir));
       expect(h.npmPublished).toHaveLength(0);
       expect(h.gh.releases[0]!.draft).toBe(false);
+    });
+
+    it('explains how to clean up a draft whose run stopped before its assets were uploaded', async () => {
+      const h = harness();
+      const draft = await h.gh.createDraftRelease({ tag: 'v1.2.3', commit: 'c1', body: 'notes', prerelease: false });
+      expect(draft.draft).toBe(true);
+      const resume = artifact();
+      resume.write('release.json', '{"schema":1,"resume":true}\n');
+      await expect(publishRelease(h.deps, options(resume.dir))).rejects.toThrow(/stopped before uploading its assets.*draft-incomplete/s);
+      expect(h.npmPublished).toHaveLength(0);
     });
 
     it('has nothing to resume once the release is published', async () => {

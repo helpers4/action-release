@@ -184,6 +184,11 @@ async function finish(
     latest: manifest.latest,
   });
   deps.log(`Released ${manifest.tag}: ${released.url}`);
+  if (released.immutable === false) {
+    deps.warn(
+      `[immutable-releases] ${manifest.tag} is not immutable: its tag and assets could still be altered. See ${DOCS}#immutable-releases`,
+    );
+  }
 
   await afterRelease(deps, manifest, commit, released.url);
   return {
@@ -246,12 +251,17 @@ async function resume(deps: PublishDeps, options: PublishOptions): Promise<Publi
   const assets = await deps.gh.listAssets(draft.id);
   const manifestAsset = assets.find((a) => a.name === RELEASE_JSON);
   if (!manifestAsset) {
-    throw new ReleaseStoppedError(`The draft Release ${draft.tag} has no ${RELEASE_JSON}: it was not created by this action.`);
+    throw new ReleaseStoppedError(
+      `The draft Release ${draft.tag} has no ${RELEASE_JSON}: either it was not created by this action, or the run stopped before uploading its assets. ` +
+        `See ${DOCS}#draft-incomplete`,
+    );
   }
   const manifest = JSON.parse((await deps.gh.downloadAsset(manifestAsset.id)).toString('utf8')) as ReleaseManifest;
   const tarballAsset = assets.find((a) => a.name === manifest.tarball);
   if (!tarballAsset) {
-    throw new ReleaseStoppedError(`The draft Release ${draft.tag} lost its tarball ${manifest.tarball}.`);
+    throw new ReleaseStoppedError(
+      `The draft Release ${draft.tag} has no tarball ${manifest.tarball}: the run stopped before uploading it. See ${DOCS}#draft-incomplete`,
+    );
   }
   const tarball = await deps.gh.downloadAsset(tarballAsset.id);
   if (sha256(tarball) !== manifest.sha256) {

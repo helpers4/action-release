@@ -14,6 +14,8 @@ export interface ReleaseInfo {
   url: string;
   draft: boolean;
   body: string;
+  /** Whether GitHub made the Release immutable; `undefined` when the response does not say. */
+  immutable?: boolean;
 }
 
 export interface AssetInfo {
@@ -92,7 +94,15 @@ export function createGh(octokit: Octokit, owner: string, repo: string): Gh {
     html_url: string;
     draft: boolean;
     body?: string | null;
-  }): ReleaseInfo => ({ id: r.id, tag: r.tag_name, url: r.html_url, draft: r.draft, body: r.body ?? '' });
+    immutable?: boolean;
+  }): ReleaseInfo => ({
+    id: r.id,
+    tag: r.tag_name,
+    url: r.html_url,
+    draft: r.draft,
+    body: r.body ?? '',
+    immutable: r.immutable,
+  });
 
   return {
     async immutableReleasesEnabled() {

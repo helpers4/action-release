@@ -46,6 +46,20 @@ the repository public), then run the release again with `bump: resume`.
 Immutable releases make a published release's tag and assets permanent. Enable them in
 Settings → General → Releases. The release works without them, but nothing protects the tag.
 
+## draft-incomplete
+
+`bump: resume` found a draft Release that cannot be finished: it has no `release.json` or no
+tarball. The run stopped after creating the tag and the draft, but before uploading the assets,
+so **nothing was published anywhere** (npm comes after the upload). The tag and the draft are
+safe to remove, then run the release again:
+
+```bash
+gh release delete vX.Y.Z --yes          # the draft
+git push origin :refs/tags/vX.Y.Z       # the tag
+```
+
+Only do this when the version is not on npm (`npm view <name> versions`).
+
 ## tag-ruleset
 
 A tag ruleset forbids creating `v*` tags. Immutable releases already protect release tags, so

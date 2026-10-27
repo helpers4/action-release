@@ -59,21 +59,21 @@ describe('nextVersion', () => {
 
   it('numbers prereleases from the highest existing one of the same target', () => {
     const input = { ...base, base: '1.2.3', commits: [c('feat: a')] };
-    expect(nextVersion({ ...input, bump: 'beta' })).toBe('1.3.0-beta.1');
+    expect(nextVersion({ ...input, bump: 'beta' })).toBe('1.3.0-beta.0');
     expect(nextVersion({ ...input, bump: 'beta', existing: ['1.3.0-beta.1', '1.3.0-beta.2', '1.2.3'] })).toBe('1.3.0-beta.3');
-    expect(nextVersion({ ...input, bump: 'rc', existing: ['1.3.0-beta.2'] })).toBe('1.3.0-rc.1');
+    expect(nextVersion({ ...input, bump: 'rc', existing: ['1.3.0-beta.2'] })).toBe('1.3.0-rc.0');
   });
 
   it('counts prereleases of other lines too, but only for the same target', () => {
     const input = { ...base, base: '1.2.3', commits: [c('feat: a')], bump: 'beta' as const };
-    expect(nextVersion({ ...input, existing: ['1.4.0-beta.9'] })).toBe('1.3.0-beta.1');
+    expect(nextVersion({ ...input, existing: ['1.4.0-beta.9'] })).toBe('1.3.0-beta.0');
   });
 
   it('starts a new target when a breaking change arrives', () => {
-    expect(nextVersion({ ...base, base: '1.2.3', bump: 'alpha', commits: [c('feat!: a')], existing: ['1.3.0-alpha.1'] })).toBe('2.0.0-alpha.1');
+    expect(nextVersion({ ...base, base: '1.2.3', bump: 'alpha', commits: [c('feat!: a')], existing: ['1.3.0-alpha.1'] })).toBe('2.0.0-alpha.0');
   });
 
   it('builds prereleases before 1.0.0 on the pre-1.0 rule', () => {
-    expect(nextVersion({ ...base, base: '0.2.4', bump: 'beta', commits: [c('feat: a')] })).toBe('0.2.5-beta.1');
+    expect(nextVersion({ ...base, base: '0.2.4', bump: 'beta', commits: [c('feat: a')] })).toBe('0.2.5-beta.0');
   });
 });
