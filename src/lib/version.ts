@@ -67,6 +67,6 @@ export function nextVersion(input: NextVersionInput): string {
     .map((version) => parse(version))
     .filter((v) => `${v.major}.${v.minor}.${v.patch}` === target && v.prerelease[0] === bump)
     .map((v) => Number(v.prerelease[1] ?? 0))
-    .reduce((max, n) => Math.max(max, n), 0);
+    .reduce((max, n) => Math.max(max, n), -1);
   return `${target}-${bump}.${counter + 1}`;
 }

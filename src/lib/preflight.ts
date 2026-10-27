@@ -124,6 +124,14 @@ export async function preflight(
         'Immutable releases are not enabled: the tag and the assets of this release could still be altered later. Enable them in Settings → General → Releases, or with `gh api -X PUT repos/{owner}/{repo}/immutable-releases`.',
       ),
     );
+  } else if (immutable === undefined) {
+    problems.push(
+      problem(
+        'warning',
+        'immutable-releases',
+        'The token cannot read the immutable releases setting. It is checked on the Release once published.',
+      ),
+    );
   }
 
   for (const ruleset of blockingRulesets(await gh.tagRulesets(), manifest.tag)) {

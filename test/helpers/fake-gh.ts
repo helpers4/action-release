@@ -10,6 +10,7 @@ interface FakeRelease extends ReleaseInfo {
   prerelease: boolean;
   latest: boolean;
   commit: string;
+  immutable?: boolean;
 }
 
 /** An in-memory GitHub, keeping just enough state to check what the release does. */
@@ -85,6 +86,7 @@ export class FakeGh implements Gh {
     if (patch.body !== undefined) release.body = patch.body;
     if (patch.draft !== undefined) release.draft = patch.draft;
     if (patch.latest !== undefined) release.latest = patch.latest;
+    release.immutable = this.immutable === undefined ? undefined : this.immutable && !release.draft;
     return release;
   }
   async latestDraft() {

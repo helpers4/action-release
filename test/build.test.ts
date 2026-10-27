@@ -104,7 +104,7 @@ describe('buildRelease', () => {
   it('publishes a prerelease under its identifier', async () => {
     fixture();
     const manifest = (await buildRelease(options({ bump: 'beta' }))) as ReleaseManifest;
-    expect(manifest.version).toBe('0.0.1-beta.1');
+    expect(manifest.version).toBe('0.0.1-beta.0');
     expect(manifest.distTag).toBe('beta');
     expect(manifest.latest).toBe(false);
     expect(manifest.prerelease).toBe(true);
