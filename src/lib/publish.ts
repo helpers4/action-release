@@ -31,6 +31,10 @@ export interface PublishOptions {
 }
 
 export interface PublishResult {
+  /** Name of the published package. */
+  packageName: string;
+  /** npm dist-tag the version was published under. */
+  distTag: string;
   version: string;
   tag: string;
   releaseUrl?: string;
@@ -90,7 +94,7 @@ export async function publishRelease(deps: PublishDeps, options: PublishOptions)
 
   if (options.dryRun) {
     deps.log(`Dry run: ${manifest.tag} would be released from commit ${commit}. Stopping before the tag.`);
-    return { version: manifest.version, tag: manifest.tag, published: {}, dryRun: true };
+    return { packageName: manifest.package.name, distTag: manifest.distTag, version: manifest.version, tag: manifest.tag, published: {}, dryRun: true };
   }
 
   // The tag is the lock: creating a ref is atomic, so a concurrent release stops here.
@@ -183,6 +187,8 @@ async function finish(
 
   await afterRelease(deps, manifest, commit, released.url);
   return {
+    packageName: manifest.package.name,
+    distTag: manifest.distTag,
     version: manifest.version,
     tag: manifest.tag,
     releaseUrl: released.url,
