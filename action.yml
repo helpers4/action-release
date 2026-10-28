@@ -66,6 +66,9 @@ runs:
     - name: Build and dry-run every target
       if: steps.prepare.outputs.state != 'done'
       shell: bash
+      env:
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_HAS_APP: ${{ inputs.app-id != '' && inputs.app-key != '' }}
       run: node "$GITHUB_ACTION_PATH/src/main.ts" verify
 
     # Created only now, after the project's code has run, and limited to this repository.
