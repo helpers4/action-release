@@ -18,9 +18,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: helpers4/action/setup-pnpm@215739f023134ab5ed2158607074084ec530a830
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "26"
-      - run: pnpm run typecheck
-      - run: pnpm test
-      - run: pnpm run build
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test

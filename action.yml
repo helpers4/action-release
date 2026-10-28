@@ -2,75 +2,108 @@
 # Copyright (C) 2025 baxyz
 # SPDX-License-Identifier: LGPL-3.0-or-later
 name: helpers4 release
-description: Signed releases of JS/TS packages without a GitHub App, secrets, or writes to the release branch
+description: Version, changelog, release commit on main, tag, GitHub Release, and publication to npm, crates.io and JSR
 author: helpers4
 branding:
   icon: package
   color: blue
 
 inputs:
-  mode:
-    description: >-
-      build: compute the version, build, pack, dry-run and upload the release artifact (needs only contents: read).
-      publish: tag, publish and create the GitHub Release from that artifact, without running any project code.
-      check: run the release checks that do not depend on the next version (for pull requests).
-    required: false
-    default: build
   bump:
     description: auto, patch, minor, major, alpha, beta, rc or resume
     required: false
     default: auto
   dry-run:
-    description: Run every step that does not make the release irreversible, and stop before the tag
+    description: Prepare and verify everything (build, registry dry-runs), then stop before writing anything
     required: false
     default: "false"
-  package:
-    description: Path of the published package, for monorepos (default is the repository root)
+  app-id:
+    description: Client ID of the GitHub App allowed to push the release commit to the protected branch
     required: false
     default: ""
-  setup:
-    description: Shell command run before the build, for tooling that cannot be detected
+  app-key:
+    description: Private key of that GitHub App
     required: false
     default: ""
-  build:
-    description: Build command, when it is not the package "build" script
+  config:
+    description: Path of the optional release configuration
     required: false
-    default: ""
-  registries:
-    description: Comma-separated publication targets, npm or none. Suffix a target with ? to make its failure non-blocking
-    required: false
-    default: npm
-  environment:
-    description: GitHub environment declared by the npm trusted publisher, if any
-    required: false
-    default: ""
-  carry:
-    description: Space-separated files carried from tag to tag (restored from the previous release, then committed in the release commit)
-    required: false
-    default: CHANGELOG.md
-  prepare:
-    description: Command run with RELEASE_VERSION set, which may only modify the files listed in carry
-    required: false
-    default: ""
-  include-build:
-    description: Also commit the build output of this action into the release commit and move the floating major tag. Only for repositories with action.yml at the root
-    required: false
-    default: auto
+    default: .github/release.yml
   github-token:
-    description: Token used for the GitHub API
+    description: Token for the GitHub Release (the job needs contents write)
     required: false
     default: ${{ github.token }}
 
 outputs:
   version:
-    description: Released version, without the leading v
+    description: Released version
+    value: ${{ steps.prepare.outputs.version }}
   tag:
-    description: Created tag
+    description: Release tag
+    value: ${{ steps.prepare.outputs.tag }}
   release-url:
     description: URL of the GitHub Release
-  published:
-    description: JSON object telling, for each registry, whether the version was published
+    value: ${{ steps.finalize.outputs.release-url }}
 
 runs:
-  using: node24
-  main: dist/index.mjs
+  using: composite
+  steps:
+    - name: Install the release engine
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/src/install.sh"'
+
+    # state: new (a version to release), resume (released but incomplete), done (nothing left).
+    - name: Prepare the release
+      id: prepare
+      shell: bash
+      env:
+        INPUT_BUMP: ${{ inputs.bump }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/src/main.ts" prepare
+
+    - name: Build and dry-run every target
+      if: steps.prepare.outputs.state != 'done'
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/src/main.ts" verify
+
+    # Created only now, after the project's code has run, and limited to this repository.
+    - name: Get the token of the App
+      id: app
+      if: steps.prepare.outputs.state == 'new' && inputs.dry-run != 'true'
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.app-key }}
+        repositories: ${{ github.event.repository.name }}
+        permission-contents: write
+
+    - name: Commit to the branch, tag, draft the Release
+      if: steps.prepare.outputs.state == 'new' && inputs.dry-run != 'true'
+      shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app.outputs.token }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/src/main.ts" commit
+
+    - name: Authenticate to crates.io
+      id: crates
+      if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true' && steps.prepare.outputs.crates == 'true'
+      uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+    - name: Publish
+      if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true'
+      shell: bash
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/src/main.ts" publish
+
+    - name: Publish the Release
+      id: finalize
+      if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/src/main.ts" finalize
