@@ -4,21 +4,15 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import * as core from '@actions/core';
-import { runBuild } from './modes/build.js';
-import { runCheck } from './modes/check.js';
-import { runPublish } from './modes/publish.js';
+// Entry point of each step of the composite action: `node src/main.ts <step>`.
+const steps = ['prepare', 'verify', 'commit', 'publish', 'finalize'] as const;
+type Step = (typeof steps)[number];
 
-const MODES = { build: runBuild, publish: runPublish, check: runCheck } as const;
-
-async function main(): Promise<void> {
-  const mode = core.getInput('mode') || 'build';
-  if (!(mode in MODES)) {
-    throw new Error(`Unknown mode "${mode}": expected build, publish or check.`);
-  }
-  await MODES[mode as keyof typeof MODES]();
+const step = process.argv[2] as Step | undefined;
+if (!step || !steps.includes(step)) {
+  console.error(`Usage: node src/main.ts <${steps.join('|')}>`);
+  process.exit(2);
 }
 
-main().catch((error: unknown) => {
-  core.setFailed(error instanceof Error ? error.message : String(error));
-});
+console.error(`::error::The ${step} step is not implemented yet.`);
+process.exit(1);

@@ -1,32 +1,24 @@
 {
   "name": "action-release",
-  "version": "0.0.0-development",
+  "version": "0.0.0",
   "private": true,
-  "description": "Signed releases of JS/TS packages without a GitHub App, secrets, or writes to the release branch",
+  "description": "Release a TS, Rust or mixed repository: version, changelog, commit on main, tag, GitHub Release, npm, crates.io and JSR",
   "license": "LGPL-3.0-or-later",
   "type": "module",
-  "packageManager": "pnpm@12.11.2",
   "engines": {
-    "node": ">=24"
+    "node": ">=22.18"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@actions/artifact": "^6.3.1",
-    "@actions/attest": "^3.2.0",
-    "@actions/core": "^3.0.1",
-    "@actions/github": "^9.1.1",
-    "helpers4": "^3.1.9",
-    "package-manager-detector": "^1.9.0"
+    "git-cliff": "2.14.2",
+    "helpers4": "^3.1.9"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
-    "esbuild": "^0.28.2",
-    "git-cliff": "^2.14.2",
+    "@types/node": "^24.0.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }

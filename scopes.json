@@ -1,8 +1,11 @@
 [
   "action",
-  "workflow",
   "version",
   "changelog",
+  "since",
+  "manifest",
+  "commit",
+  "publish",
   "preflight",
   "docs",
   "deps",
