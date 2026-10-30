@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 
 export interface SinceConfig {
-  /** The placeholder written in place of a version (`@since next`). */
+  /** The placeholder written in place of a version (`@since 0.2.0`). */
   marker: string;
   /** Globs of the files whose `@since <marker>` tags get the version. */
   files: string[];

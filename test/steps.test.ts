@@ -29,7 +29,7 @@ function library(): TempRepo {
   });
   repo.tag('v0.2.4');
   repo.commit('feat(api): ✨ add decode', {
-    'src/decode.ts': '/** @since next */\nexport const decode = 1;\n',
+    'src/decode.ts': '/** @since 0.2.0 */\nexport const decode = 1;\n',
     'CHANGELOG.md': '# Changelog\n\n## [Unreleased]\n\nDecoding is now streamed.\n\n## [0.2.4] - 2026-07-19\n\n- older\n',
   });
   return repo;

@@ -66,16 +66,16 @@ describe('replaceSince', () => {
   it('replaces the markers in tracked sources and in the JSON maps', () => {
     repo = new TempRepo();
     repo.commit('feat: a', {
-      'src/a.ts': '/**\n * @since next\n */\nexport const a = 1; // @since nextgen stays\n',
-      'src/lib.rs': '/// @since next\npub fn b() {}\n',
-      'README.md': '@since next is documented here\n',
+      'src/a.ts': '/**\n * @since 0.2.0\n */\nexport const a = 1; // @since nextgen stays\n',
+      'src/lib.rs': '/// @since 0.2.0\npub fn b() {}\n',
+      'README.md': '@since 0.2.0 is documented here\n',
       'api-since.json': '{\n  "a": "0.0.1",\n  "b": "next"\n}\n',
     });
     const changed = replaceSince(repo.dir, repo.git('ls-files').split('\n'), { marker: 'next', files: DEFAULT_SINCE_FILES, json: ['api-since.json'] }, '0.1.0');
     expect(changed.sort()).toEqual(['api-since.json', 'src/a.ts', 'src/lib.rs']);
     expect(repo.read('src/a.ts')).toBe('/**\n * @since 0.1.0\n */\nexport const a = 1; // @since nextgen stays\n');
     expect(repo.read('api-since.json')).toContain('"b": "0.1.0"');
-    expect(repo.read('README.md')).toContain('@since next');
+    expect(repo.read('README.md')).toContain('@since 0.2.0');
   });
 });
 
