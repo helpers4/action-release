@@ -1,0 +1,46 @@
+# This file is part of helpers4.
+# Copyright (C) 2025 baxyz
+# SPDX-License-Identifier: LGPL-3.0-or-later
+#
+# Releases this action with itself (`uses: ./`): commit on main by helpers4-bot, tag, floating
+# major tag, GitHub Release. Nothing is built: the action runs from its sources.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        type: choice
+        default: auto
+        options: [auto, patch, minor, major, alpha, beta, rc, resume]
+      dry-run:
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./
+        with:
+          bump: ${{ inputs.bump }}
+          dry-run: ${{ inputs.dry-run }}
+          app-id: ${{ vars.HELPERS4_BOT_ID }}
+          app-key: ${{ secrets.HELPERS4_BOT_KEY }}

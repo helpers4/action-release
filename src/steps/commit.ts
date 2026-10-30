@@ -61,6 +61,10 @@ export async function commit(deps: CommitDeps): Promise<Plan> {
     const existing = git(cwd, 'ls-remote', '--tags', 'origin', `refs/tags/${plan.tag}`).split(/\s+/)[0];
     if (existing && existing !== sha) throw new ReleaseError(`${plan.tag} already exists on another commit (${existing}).`);
   }
+  if (plan.floatingTag) {
+    await deps.appGh.moveTag(plan.floatingTag, sha);
+    log(`Moved ${plan.floatingTag} to ${plan.tag}.`);
+  }
   const release =
     (await deps.gh.releaseByTag(plan.tag)) ??
     (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease }));

@@ -36,6 +36,8 @@ export interface Gh {
   fastForward(branch: string, sha: string): Promise<boolean>;
   /** Creates the tag; returns false when it already exists. */
   createTag(tag: string, sha: string): Promise<boolean>;
+  /** Points the tag at `sha`, creating or moving it (the floating major tag of an action). */
+  moveTag(tag: string, sha: string): Promise<void>;
   releaseByTag(tag: string): Promise<ReleaseInfo | undefined>;
   createDraftRelease(input: { tag: string; name: string; body: string; prerelease: boolean }): Promise<ReleaseInfo>;
   publishRelease(id: number, input: { body: string; latest: boolean }): Promise<ReleaseInfo>;
@@ -117,6 +119,15 @@ export function createGh({ token, repository, apiUrl = 'https://api.github.com',
       } catch (error) {
         if (error instanceof GitHubError && error.status === 422) return false;
         throw error;
+      }
+    },
+
+    async moveTag(tag, sha) {
+      try {
+        await call('PATCH', `/git/refs/tags/${tag}`, { sha, force: true });
+      } catch (error) {
+        if (!(error instanceof GitHubError) || (error.status !== 422 && error.status !== 404)) throw error;
+        await call('POST', '/git/refs', { ref: `refs/tags/${tag}`, sha });
       }
     },
 
