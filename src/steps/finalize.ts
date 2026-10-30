@@ -6,8 +6,9 @@
 
 import { appendFileSync } from 'node:fs';
 import { loadJson, type Runtime } from '../lib/actions.ts';
-import type { Gh } from '../lib/github.ts';
+import { GitHubError, type Gh, type ReleaseInfo } from '../lib/github.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
+import { ReleaseError } from '../lib/version.ts';
 
 export interface FinalizeDeps {
   runtime: Runtime;
@@ -41,15 +42,25 @@ export async function finalize(deps: FinalizeDeps): Promise<string> {
 
   // The id saved by commit: a listing right after the creation of the draft may not show it yet.
   const existing = plan.releaseId === undefined ? await deps.gh.releaseByTag(plan.tag) : undefined;
-  const release =
-    existing && !existing.draft
-      ? existing
-      : await deps.gh.publishRelease(
-          plan.releaseId ??
-            existing?.id ??
-            (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease })).id,
-          { body: plan.notes, latest: plan.latest },
-        );
+  let release: ReleaseInfo;
+  try {
+    release =
+      existing && !existing.draft
+        ? existing
+        : await deps.gh.publishRelease(
+            plan.releaseId ??
+              existing?.id ??
+              (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease })).id,
+            { body: plan.notes, latest: plan.latest },
+          );
+  } catch (error) {
+    if (error instanceof GitHubError && /used by an immutable release/.test(error.message)) {
+      throw new ReleaseError(
+        `${plan.tag} belonged to an immutable Release that was deleted: GitHub never lets that tag have a Release again. The version itself is released (commit, tag, packages); the next release gets a new Release.`,
+      );
+    }
+    throw error;
+  }
 
   for (const target of plan.targets) log(`${target.name}@${plan.version}: ${packageUrl(target, plan.version)}`);
   log(`::notice::${plan.tag} is released: ${release.url}`);

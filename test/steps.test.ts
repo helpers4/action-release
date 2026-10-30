@@ -6,6 +6,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadJson } from '../src/lib/actions.ts';
+import { GitHubError } from '../src/lib/github.ts';
 import { PLAN_FILE, type Plan } from '../src/lib/plan.ts';
 import { commit } from '../src/steps/commit.ts';
 import { finalize, summary } from '../src/steps/finalize.ts';
@@ -171,6 +172,15 @@ describe('commit, publish, finalize', () => {
     await finalize({ runtime, gh });
     expect(gh.releases).toHaveLength(1);
     expect(gh.releases[0]!.draft).toBe(false);
+  });
+
+  it('explains that a tag of a deleted immutable Release can never have a Release again', async () => {
+    const { runtime, gh } = await prepared();
+    await commit({ runtime, appGh: gh, gh, checkout: () => {} });
+    gh.publishRelease = async () => {
+      throw new GitHubError(422, 'GitHub PATCH /releases/1: 422 {"message":"tag_name was used by an immutable release"}');
+    };
+    await expect(finalize({ runtime, gh })).rejects.toThrow(/v0.2.5 belonged to an immutable Release that was deleted/);
   });
 
   it('publishes the Release with the notes, as the latest one', async () => {
