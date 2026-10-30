@@ -61,13 +61,13 @@ export async function commit(deps: CommitDeps): Promise<Plan> {
     const existing = git(cwd, 'ls-remote', '--tags', 'origin', `refs/tags/${plan.tag}`).split(/\s+/)[0];
     if (existing && existing !== sha) throw new ReleaseError(`${plan.tag} already exists on another commit (${existing}).`);
   }
-  if (!(await deps.gh.releaseByTag(plan.tag))) {
-    await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease });
-  }
+  const release =
+    (await deps.gh.releaseByTag(plan.tag)) ??
+    (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease }));
   log(`Tagged ${plan.tag}.`);
 
   (deps.checkout ?? checkoutCommit(env))(cwd, sha);
-  const done = { ...plan, commit: sha };
+  const done = { ...plan, commit: sha, releaseId: release.id };
   saveJson(env, PLAN_FILE, done);
   return done;
 }

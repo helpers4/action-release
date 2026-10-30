@@ -164,6 +164,15 @@ describe('commit, publish, finalize', () => {
     expect(again.targets[0]!.published).toBe(true);
   });
 
+  it('publishes the draft it created, even when the listing does not show it yet', async () => {
+    const { runtime, gh } = await prepared();
+    await commit({ runtime, appGh: gh, gh, checkout: () => {} });
+    gh.staleListing = true;
+    await finalize({ runtime, gh });
+    expect(gh.releases).toHaveLength(1);
+    expect(gh.releases[0]!.draft).toBe(false);
+  });
+
   it('publishes the Release with the notes, as the latest one', async () => {
     const { runtime, gh } = await prepared();
     await commit({ runtime, appGh: gh, gh, checkout: () => {} });

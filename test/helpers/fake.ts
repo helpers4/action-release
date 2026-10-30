@@ -17,6 +17,8 @@ export class FakeGh implements Gh {
   commits: Array<{ sha: string; parent: string; files: FileChange[]; message: string }> = [];
   tags = new Map<string, string>();
   releases: Array<ReleaseInfo & { body: string; prerelease: boolean; latest?: boolean }> = [];
+  /** Like the API right after a creation: listings do not show the drafts yet. */
+  staleListing = false;
   private next = 1;
 
   constructor(branch: string, head: string) {
@@ -43,7 +45,7 @@ export class FakeGh implements Gh {
     return true;
   }
   async releaseByTag(tag: string) {
-    return this.releases.find((r) => r.tag === tag);
+    return this.releases.find((r) => r.tag === tag && !(this.staleListing && r.draft));
   }
   async createDraftRelease(input: { tag: string; name: string; body: string; prerelease: boolean }) {
     const release = { id: this.next++, tag: input.tag, url: `https://github.com/o/r/releases/tag/${input.tag}`, draft: true, body: input.body, prerelease: input.prerelease };
