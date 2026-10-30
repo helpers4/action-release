@@ -95,28 +95,28 @@ describe('config', () => {
     expect(detectTargets(repo.dir)).toEqual([]);
   });
 
-  it('reads the configured targets, version files and since', () => {
+  it('reads the targets, version files and since from the inputs', () => {
     repo = new TempRepo();
     repo.write('packages/player/package.json', '{ "name": "folioscope" }');
-    repo.write('.github/release.yml', [
-      'targets:',
-      '  - npm: ./packages/player/',
-      '    build: pnpm --filter folioscope build',
-      'version-files: [crates/core/Cargo.toml]',
-      'since: { json: [api-since.json] }',
-    ].join('\n'));
-    const config = loadConfig(repo.dir, '.github/release.yml');
+    const config = loadConfig(repo.dir, {
+      INPUT_TARGETS: '- npm: ./packages/player/\n  build: pnpm --filter folioscope build\n',
+      INPUT_VERSION_FILES: 'crates/core/Cargo.toml\n',
+      INPUT_SINCE_JSON: 'api-since.json',
+      INPUT_CHANGELOG: '',
+    });
     expect(config.targets).toEqual([{ registry: 'npm', path: 'packages/player', manifest: 'packages/player/package.json', build: 'pnpm --filter folioscope build' }]);
     expect(config.versionFiles).toEqual(['crates/core/Cargo.toml']);
     expect(config.since).toEqual({ marker: 'next', files: DEFAULT_SINCE_FILES, json: ['api-since.json'] });
     expect(config.changelog).toBe('CHANGELOG.md');
+    expect(config.floatingMajor).toBe(false);
+    expect(loadConfig(repo.dir, { INPUT_SINCE_FILES: '' }).since.files).toEqual([]);
+    expect(loadConfig(repo.dir, { INPUT_SINCE_FILES: 'src/**/*.ts, lib/*.rs' }).since.files).toEqual(['src/**/*.ts', 'lib/*.rs']);
   });
 
   it('explains a wrong target', () => {
     repo = new TempRepo();
-    repo.write('.github/release.yml', 'targets:\n  - npm: a\n    crates: b\n');
-    expect(() => loadConfig(repo!.dir, '.github/release.yml')).toThrow(/targets\[0\] must have exactly one of npm, crates, jsr/);
-    repo.write('.github/release.yml', 'targets:\n  - jsr: lib\n');
-    expect(() => loadConfig(repo!.dir, '.github/release.yml')).toThrow(/The jsr target "lib" has no jsr.json or deno.json or deno.jsonc/);
+    expect(() => loadConfig(repo!.dir, { INPUT_TARGETS: 'npm: a' })).toThrow(/targets must be a YAML list/);
+    expect(() => loadConfig(repo!.dir, { INPUT_TARGETS: '- npm: a\n  crates: b\n' })).toThrow(/targets\[0\] must have exactly one of npm, crates, jsr/);
+    expect(() => loadConfig(repo!.dir, { INPUT_TARGETS: '- jsr: lib\n' })).toThrow(/The jsr target "lib" has no jsr.json or deno.json or deno.jsonc/);
   });
 });

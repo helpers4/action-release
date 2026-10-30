@@ -41,14 +41,6 @@ interface RawTarget {
   build?: string;
 }
 
-interface RawConfig {
-  targets?: RawTarget[];
-  'version-files'?: string[];
-  changelog?: string;
-  since?: { marker?: string; files?: string[]; json?: string[] };
-  'floating-major'?: boolean;
-}
-
 const clean = (path: string) => posix.normalize(path.replace(/^\.\/+/, '').replace(/\/+$/, '') || '.');
 
 function manifestOf(cwd: string, registry: Registry, path: string): string {
@@ -77,15 +69,26 @@ export function detectTargets(cwd: string): Target[] {
   return targets;
 }
 
-/** Reads the configuration file (optional) and completes it with what can be detected. */
-export function loadConfig(cwd: string, file: string): Config {
-  const path = join(cwd, file);
-  const raw: RawConfig = existsSync(path) ? ((parseYaml(readFileSync(path, 'utf8')) as RawConfig | null) ?? {}) : {};
+/** A list input: one item per line (or separated by commas). */
+const list = (value: string): string[] =>
+  value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 
-  const targets = (raw.targets ?? []).map((entry, i): Target => {
-    const registries = REGISTRIES.filter((r) => typeof entry[r] === 'string');
+/**
+ * Reads the configuration from the inputs of the action (`INPUT_TARGETS`, `INPUT_VERSION_FILES` …)
+ * and completes it with what can be detected. `since-files` unset means the default globs; set
+ * to an empty value, it replaces no marker.
+ */
+export function loadConfig(cwd: string, env: NodeJS.ProcessEnv): Config {
+  const raw = env.INPUT_TARGETS?.trim() ? (parseYaml(env.INPUT_TARGETS) as unknown) : [];
+  if (!Array.isArray(raw)) throw new ReleaseError('targets must be a YAML list, such as "- npm: packages/lib".');
+
+  const targets = (raw as RawTarget[]).map((entry, i): Target => {
+    const registries = REGISTRIES.filter((r) => typeof entry?.[r] === 'string');
     if (registries.length !== 1) {
-      throw new ReleaseError(`${file}: targets[${i}] must have exactly one of ${REGISTRIES.join(', ')}.`);
+      throw new ReleaseError(`targets[${i}] must have exactly one of ${REGISTRIES.join(', ')}.`);
     }
     const registry = registries[0]!;
     const dir = clean(entry[registry]!);
@@ -94,13 +97,13 @@ export function loadConfig(cwd: string, file: string): Config {
 
   return {
     targets: targets.length > 0 ? targets : detectTargets(cwd),
-    versionFiles: (raw['version-files'] ?? []).map(clean),
-    changelog: clean(raw.changelog ?? 'CHANGELOG.md'),
+    versionFiles: list(env.INPUT_VERSION_FILES ?? '').map(clean),
+    changelog: clean(env.INPUT_CHANGELOG?.trim() || 'CHANGELOG.md'),
     since: {
-      marker: raw.since?.marker ?? 'next',
-      files: raw.since?.files ?? DEFAULT_SINCE_FILES,
-      json: (raw.since?.json ?? []).map(clean),
+      marker: env.INPUT_SINCE_MARKER?.trim() || 'next',
+      files: env.INPUT_SINCE_FILES === undefined ? DEFAULT_SINCE_FILES : list(env.INPUT_SINCE_FILES),
+      json: list(env.INPUT_SINCE_JSON ?? '').map(clean),
     },
-    floatingMajor: raw['floating-major'] === true,
+    floatingMajor: env.INPUT_FLOATING_MAJOR?.trim() === 'true',
   };
 }
