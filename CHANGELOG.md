@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
+### Bug fixes
+
+- **commit**: 🐛 check out the release commit over the files prepare created
+- **since**: 🐛 keep the @since examples of this action's sources and tests
+
 ## [0.2.0] - 2026-10-30
 
 ### Features
