@@ -1,3 +1,6 @@
 # Release of this action: no registry; the major tag (v0) follows each stable release.
 version-files: [package.json]
 floating-major: true
+# The sources and tests use `@since next` as an example: never replace it.
+since:
+  files: []
