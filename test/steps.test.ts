@@ -12,7 +12,7 @@ import { checkoutCommit, commit } from '../src/steps/commit.ts';
 import { finalize, summary } from '../src/steps/finalize.ts';
 import { prepare } from '../src/steps/prepare.ts';
 import { publish } from '../src/steps/publish.ts';
-import { preflight } from '../src/steps/verify.ts';
+import { preflight, verify, wrongVersions } from '../src/steps/verify.ts';
 import { FakeGh, fakeRegistry, fakeRuntime } from './helpers/fake.ts';
 import { TempRepo } from './helpers/repo.ts';
 
@@ -118,6 +118,18 @@ describe('preflight', () => {
       expect.stringContaining('app-id and app-key'),
     ]);
     expect(preflight(plan, { ACTIONS_ID_TOKEN_REQUEST_URL: 'x', INPUT_HAS_APP: 'true' }, () => '11.6.0')).toEqual([]);
+  });
+
+  it('never publishes a manifest that does not carry the version of the release', async () => {
+    // folioscope v0.0.5: tagged without its target, then resumed with it.
+    library();
+    repo.commit('chore(release): 🔖 v0.2.5');
+    repo.tag('v0.2.5');
+    const runtime = fakeRuntime(repo.dir, { INPUT_BUMP: 'resume', ACTIONS_ID_TOKEN_REQUEST_URL: 'x' });
+    const resumed = await prepare({ runtime, gh: () => new FakeGh('main', 'x'), fetchImpl: fakeRegistry(), today });
+    expect(resumed).toMatchObject({ state: 'resume', version: '0.2.5' });
+    expect(wrongVersions(repo.dir, resumed)).toEqual(['package.json has version 0.2.4, not 0.2.5']);
+    expect(() => verify({ runtime, npmVersion: () => '11.6.0' })).toThrow(/package.json has version 0.2.4, not 0.2.5: the commit of v0.2.5 cannot publish 0.2.5\. Nothing was published/);
   });
 });
 
