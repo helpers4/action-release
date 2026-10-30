@@ -44,3 +44,7 @@ jobs:
           dry-run: ${{ inputs.dry-run }}
           app-id: ${{ vars.HELPERS4_BOT_ID }}
           app-key: ${{ secrets.HELPERS4_BOT_KEY }}
+          version-files: package.json
+          floating-major: true
+          # The sources and tests use `@since next` as an example: never replace it.
+          since-files: ""

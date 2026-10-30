@@ -97,40 +97,42 @@ jobs:
    serves the version is skipped.
 5. **finalize**: the Release is published; the job summary lists the links.
 
-## Configuration
-
-Optional, in `.github/release.yml`. Without it, the root `package.json` (unless private),
-`Cargo.toml` (unless `publish = false`) and `jsr.json` / `deno.json` are released.
-
-```yaml
-targets:                                # what is published, in this order
-  - npm: packages/folioscope
-    build: pnpm --filter folioscope build:wasm && pnpm --filter folioscope build
-  - crates: crates/core                 # build: optional for every target
-  - jsr: .
-version-files: [package.json]           # manifests that carry the version without being published
-changelog: CHANGELOG.md
-since:
-  marker: next                          # @since next
-  files: ["src/**/*.ts"]                # default: every tracked .ts, .js, .rs… file
-  json: [api-since.json]
-floating-major: false                   # true for a GitHub Action: move v1 to each stable release
-```
-
-Without `build`, an npm package runs its `build` script with your package manager; crates and JSR
-packages are built by their own dry-run.
-
 ## Inputs and outputs
+
+Everything is an input of the step: no configuration file.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `bump` | `auto` | `auto`, `patch`, `minor`, `major`, `alpha`, `beta`, `rc` or `resume` |
 | `dry-run` | `false` | Prepare and verify everything, write nothing |
 | `app-id` / `app-key` | – | Client ID and private key of the App that pushes to the branch |
-| `config` | `.github/release.yml` | Path of the configuration |
+| `targets` | detected | What is published, in this order (YAML list, see below) |
+| `version-files` | – | Manifests that carry the version without being published (one per line) |
+| `changelog` | `CHANGELOG.md` | Changelog file |
+| `since-marker` | `next` | `@since next` |
+| `since-files` | every tracked `.ts`, `.js`, `.rs`… file | Globs of the files whose `@since` markers get the version; `""` for none |
+| `since-json` | – | JSON maps whose `"next"` values get the version, such as `api-since.json` |
+| `floating-major` | `false` | `true` for a GitHub Action: move `v1` to each stable release |
 | `github-token` | `github.token` | Token for the GitHub Release |
 
 Outputs: `version`, `tag`, `release-url`.
+
+Without `targets`, the root `package.json` (unless private), `Cargo.toml` (unless `publish = false`)
+and `jsr.json` / `deno.json` are released. Otherwise:
+
+```yaml
+      - uses: helpers4/action-release@v0
+        with:
+          # …
+          targets: |
+            - npm: packages/folioscope
+              build: pnpm --filter folioscope build:wasm && pnpm --filter folioscope build
+            - crates: crates/core               # build: optional for every target
+            - jsr: .
+```
+
+Without `build`, an npm package runs its `build` script with your package manager; crates and JSR
+packages are built by their own dry-run.
 
 ## Failures and resuming
 
@@ -144,11 +146,11 @@ Every message is explained in [docs/troubleshooting.md](docs/troubleshooting.md)
 
 ## Examples
 
-- **mozlz4** (TS library, npm + JSR): no configuration if `jsr.json` sits next to `package.json`;
+- **mozlz4** (TS library, npm + JSR): no input to add if `jsr.json` sits next to `package.json`;
   the hand-written `[Unreleased]` notes become the summary of each release.
 - **folioscope** (pnpm monorepo, Rust → WebAssembly → npm): the release job sets up Rust and
-  `wasm-bindgen`, then `targets: [{ npm: packages/folioscope, build: … }]`.
-- **helpers4/rust** (crate): no target to configure; `since.json: [api-since.json]`.
+  `wasm-bindgen`, then `targets` with `npm: packages/folioscope` and its build.
+- **helpers4/rust** (crate): no target to configure; `since-json: api-since.json`.
 
 ## Requirements and limits
 

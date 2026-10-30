@@ -43,7 +43,7 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
   const bump = (env.INPUT_BUMP || 'auto').trim();
   if (!isBump(bump)) throw new ReleaseError(`Unknown bump "${bump}": use auto, patch, minor, major, alpha, beta, rc or resume.`);
 
-  const config = loadConfig(cwd, env.INPUT_CONFIG || '.github/release.yml');
+  const config = loadConfig(cwd, env);
   if (config.targets.length === 0) log('No package to publish: the release only tags and creates the GitHub Release.');
 
   const base = headSha(cwd);
@@ -121,7 +121,7 @@ async function resumePlan(deps: PrepareDeps, cwd: string, config: Config, branch
   if (!commit) throw new ReleaseError(`${tag} does not exist.`);
   git(cwd, 'checkout', '-q', '--detach', commit);
   const version = tag.slice(1);
-  const after = loadConfig(cwd, deps.runtime.env.INPUT_CONFIG || '.github/release.yml');
+  const after = loadConfig(cwd, deps.runtime.env);
 
   const targets: PlannedTarget[] = [];
   for (const target of after.targets) {
