@@ -1,6 +1,6 @@
 {
   "name": "action-release",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Release a TS, Rust or mixed repository: version, changelog, commit on main, tag, GitHub Release, npm, crates.io and JSR",
   "license": "LGPL-3.0-or-later",

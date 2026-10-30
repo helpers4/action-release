@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-30
+
+### Bug fixes
+
+- **publish**: 🐛 never publish a manifest that does not carry the version of the release
+
 ## [0.4.0] - 2026-10-30
 
 ### Breaking changes
