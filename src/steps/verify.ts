@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { compare } from 'helpers4/version';
 import { isTrue, loadJson, workspace, type Runtime } from '../lib/actions.ts';
 import { run } from '../lib/exec.ts';
-import { PLAN_FILE, type Plan } from '../lib/plan.ts';
-import { build, dryRun, versionToPublish } from '../lib/registries.ts';
+import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
+import { build, crateProblems, dryRun, dryRunCrates, oversizedCrates, versionToPublish, type CrateTarget } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
 
 /** npm publishes with OIDC trusted publishing from this version on. */
@@ -84,22 +84,45 @@ export function verify(deps: VerifyDeps): void {
     );
   }
 
-  for (const target of plan.targets.filter((t) => !t.published)) {
-    log(`::group::${target.registry}: ${target.name}@${plan.version}`);
+  const pending = plan.targets.filter((t) => !t.published);
+  const crates = pending.filter((t): t is PlannedTarget & CrateTarget => t.registry === 'crates');
+  if (crates.length > 0) {
+    const { problems: missing, warnings } = crateProblems(crates, cwd);
+    for (const warning of warnings) warn(warning);
+    if (missing.length > 0) throw new ReleaseError(`crates.io would refuse:\n- ${missing.join('\n- ')}\nNothing was written.`);
+  }
+
+  // The crates of a workspace are checked and published together, at the place of the first one.
+  let cratesDone = false;
+  for (const target of pending) {
+    if (target.registry === 'crates') {
+      if (cratesDone) continue;
+      cratesDone = true;
+    }
+    const batch: PlannedTarget[] = target.registry === 'crates' ? crates : [target];
+    const label = `${target.registry}: ${batch.map((t) => t.name).join(', ')}`;
+    log(`::group::${label}@${plan.version}`);
     try {
-      build(target, { cwd, env, log });
+      for (const t of batch) build(t, { cwd, env, log });
     } catch {
-      throw new ReleaseError(`The build of ${target.name} failed (see the log above). Nothing was written.`);
+      throw new ReleaseError(`The build of ${batch.map((t) => t.name).join(', ')} failed (see the log above). Nothing was written.`);
     } finally {
       log('::endgroup::');
     }
-    log(`::group::${target.registry} dry-run: ${target.name}@${plan.version}`);
+    log(`::group::${target.registry} dry-run: ${batch.map((t) => t.name).join(', ')}@${plan.version}`);
     try {
-      dryRun(target, plan.version, plan.distTag, { cwd, env, log });
+      if (target.registry === 'crates') dryRunCrates(crates, { cwd, env, log });
+      else dryRun(target, plan.version, plan.distTag, { cwd, env, log });
     } catch {
-      throw new ReleaseError(`The ${target.registry} dry-run of ${target.name} failed: fix what it reports in the log above. Nothing was written.`);
+      throw new ReleaseError(
+        `The ${target.registry} dry-run of ${batch.map((t) => t.name).join(', ')} failed: fix what it reports in the log above. Nothing was written.`,
+      );
     } finally {
       log('::endgroup::');
+    }
+    if (target.registry === 'crates') {
+      const oversized = oversizedCrates(crates, plan.version, cwd);
+      if (oversized.length > 0) throw new ReleaseError(`crates.io would refuse:\n- ${oversized.join('\n- ')}\nNothing was written.`);
     }
   }
   if (isTrue(env.INPUT_DRY_RUN) && plan.state === 'new') {

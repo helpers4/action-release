@@ -5,7 +5,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, posix } from 'node:path';
+import { basename, dirname, join, posix, relative } from 'node:path';
 import { run } from './exec.ts';
 import { ReleaseError } from './version.ts';
 
@@ -96,6 +96,74 @@ export function writeVersion(cwd: string, path: string, version: string): string
   }
   throw new ReleaseError(`${path}: unknown kind of manifest (expected package.json, jsr.json, deno.json or Cargo.toml).`);
 }
+
+/**
+ * Sets the `version` of the dependencies on crates released together (`{ path = "…", version = "…" }`,
+ * in `[dependencies]`, `[workspace.dependencies]`…): cargo refuses to publish a crate whose
+ * requirement on a sibling does not match the version being published. One-line tables only.
+ */
+export function setInternalVersions(text: string, names: ReadonlySet<string>, version: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const dependency = /^(\s*)([\w-]+)\s*=\s*\{(.*)\}(\s*(?:#.*)?)$/.exec(line);
+      if (!dependency) return line;
+      const body = dependency[3]!;
+      const name = /(?<![\w-])package\s*=\s*"([^"]+)"/.exec(body)?.[1] ?? dependency[2]!;
+      if (!names.has(name) || !/(?<![\w-])path\s*=/.test(body) || !/(?<![\w-])version\s*=\s*"[^"]*"/.test(body)) return line;
+      return line.replace(/((?<![\w-])version\s*=\s*)"[^"]*"/, `$1"${version}"`);
+    })
+    .join('\n');
+}
+
+/** Applies `setInternalVersions` to the given Cargo.toml files; returns the ones that changed. */
+export function syncInternalVersions(cwd: string, manifests: readonly string[], names: ReadonlySet<string>, version: string): string[] {
+  const changed: string[] = [];
+  for (const path of new Set(manifests)) {
+    const file = join(cwd, path);
+    const before = readFileSync(file, 'utf8');
+    const after = setInternalVersions(before, names, version);
+    if (after !== before) {
+      writeFileSync(file, after);
+      changed.push(path);
+    }
+  }
+  return changed;
+}
+
+export interface CargoPackage {
+  name: string;
+  version: string;
+  manifest_path: string;
+  /** `null`: any registry; `[]`: `publish = false`. */
+  publish: string[] | null;
+  description: string | null;
+  license: string | null;
+  license_file: string | null;
+  repository: string | null;
+}
+
+export interface CargoMetadata {
+  /** The members of the workspace (the metadata is read without dependencies). */
+  packages: CargoPackage[];
+  workspace_root: string;
+  target_directory: string;
+}
+
+/** What `cargo metadata` knows of the workspace of a manifest: it resolves inherited fields. */
+export function cargoMetadata(manifest: string, env?: NodeJS.ProcessEnv): CargoMetadata {
+  const cwd = dirname(manifest);
+  return JSON.parse(run('cargo', ['metadata', '--no-deps', '--format-version', '1', '--manifest-path', manifest], { cwd, env })) as CargoMetadata;
+}
+
+/** Whether a package may go to crates.io. */
+export const publishesToCrates = (pkg: CargoPackage): boolean => pkg.publish === null || pkg.publish.includes('crates-io');
+
+/** Whether a Cargo.toml is the root of a virtual workspace (no `[package]` of its own). */
+export const isVirtualWorkspace = (text: string): boolean => /^\[workspace\]/m.test(text) && !/^\[package\]/m.test(text);
+
+/** Path of a file relative to the repository, with `/` separators. */
+export const repoPath = (cwd: string, absolute: string): string => relative(cwd, absolute).split('\\').join('/');
 
 /** Refreshes the workspace entries of the Cargo.lock next to the given Cargo.toml, with cargo itself. */
 export function updateCargoLock(cwd: string, cargoToml: string): string[] {

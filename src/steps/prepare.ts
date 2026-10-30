@@ -12,7 +12,7 @@ import { generateList, sectionOf, updateChangelog } from '../lib/changelog.ts';
 import { loadConfig, type Config } from '../lib/config.ts';
 import { allTags, commitsSince, git, headSha, tagCommit, tagsMergedInHead, trackedFiles } from '../lib/git.ts';
 import type { Gh } from '../lib/github.ts';
-import { readVersion, updateCargoLock, writeVersion } from '../lib/manifests.ts';
+import { cargoMetadata, readVersion, repoPath, syncInternalVersions, updateCargoLock, writeVersion } from '../lib/manifests.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget, type State } from '../lib/plan.ts';
 import { distTag, isPublished, packageName, type Fetch } from '../lib/registries.ts';
 import { replaceSince } from '../lib/since.ts';
@@ -80,6 +80,13 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
   const files = new Set<string>();
   const manifests = [...new Set([...config.targets.map((t) => t.manifest), ...config.versionFiles])];
   for (const manifest of manifests) for (const path of writeVersion(cwd, manifest, version)) files.add(path);
+  const crateNames = new Set(config.targets.filter((t) => t.registry === 'crates').map((t) => packageName(cwd, t)));
+  if (crateNames.size > 0) {
+    // The crates released together require each other's version: a path dependency with an old one cannot be published.
+    const roots = config.targets.filter((t) => t.registry === 'crates').map((t) => repoPath(cwd, join(cargoMetadata(join(cwd, t.manifest)).workspace_root, 'Cargo.toml')));
+    const cargoFiles = [...manifests.filter((m) => basename(m) === 'Cargo.toml'), ...roots];
+    for (const path of syncInternalVersions(cwd, cargoFiles, crateNames, version)) files.add(path);
+  }
   for (const cargo of manifests.filter((m) => basename(m) === 'Cargo.toml').slice(0, 1)) {
     for (const path of updateCargoLock(cwd, cargo)) if (trackedFiles(cwd).includes(path)) files.add(path);
   }

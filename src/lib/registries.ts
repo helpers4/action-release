@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compare, parse } from 'helpers4/version';
 import type { Registry, Target } from './config.ts';
 import { run, shell } from './exec.ts';
-import { cargoPackageName, readVersion } from './manifests.ts';
+import { cargoMetadata, cargoPackageName, readVersion } from './manifests.ts';
 import { ReleaseError } from './version.ts';
 
 export type Fetch = typeof fetch;
@@ -93,10 +93,7 @@ export function build(target: Target, ctx: RunContext): void {
 export function versionToPublish(target: Target, cwd: string): string | undefined {
   if (target.registry !== 'crates') return readVersion(cwd, target.manifest);
   const manifest = resolve(cwd, target.manifest);
-  const metadata = JSON.parse(run('cargo', ['metadata', '--no-deps', '--format-version', '1', '--manifest-path', manifest], { cwd })) as {
-    packages: Array<{ manifest_path: string; version: string }>;
-  };
-  return metadata.packages.find((p) => p.manifest_path === manifest)?.version;
+  return cargoMetadata(manifest).packages.find((p) => p.manifest_path === manifest)?.version;
 }
 
 /** Packs an npm target with the project's package manager (it resolves workspace: and catalog:). */
@@ -119,6 +116,7 @@ function pack(target: Target, ctx: RunContext, destination: string, version: str
  * repository, it would obey the project's package manager pins (devEngines).
  */
 export function dryRun(target: Target, version: string, tag: string, ctx: RunContext): void {
+  if (target.registry === 'crates') throw new ReleaseError('Crates are published together: use dryRunCrates.');
   if (target.registry === 'npm') {
     const scratch = mkdtempSync(join(tmpdir(), 'h4-pack-'));
     try {
@@ -127,15 +125,14 @@ export function dryRun(target: Target, version: string, tag: string, ctx: RunCon
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
-  } else if (target.registry === 'crates') {
-    run('cargo', ['publish', '--dry-run', '--locked', '--allow-dirty', '--manifest-path', join(ctx.cwd, target.manifest)], { cwd: ctx.cwd, env: ctx.env, inherit: true });
-  } else {
+  } else if (target.registry === 'jsr') {
     run(process.execPath, [jsrCli(), 'publish', '--dry-run', '--allow-dirty'], { cwd: join(ctx.cwd, target.path), env: ctx.env, inherit: true });
   }
 }
 
 /** Publishes a target with its registry's standard tool and OIDC trusted publishing. */
 export function publish(target: Target, version: string, tag: string, ctx: RunContext): void {
+  if (target.registry === 'crates') throw new ReleaseError('Crates are published together: use publishCrates.');
   if (target.registry === 'npm') {
     const scratch = mkdtempSync(join(tmpdir(), 'h4-pack-'));
     try {
@@ -144,12 +141,73 @@ export function publish(target: Target, version: string, tag: string, ctx: RunCo
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
-  } else if (target.registry === 'crates') {
-    if (!ctx.env.CARGO_REGISTRY_TOKEN) {
-      throw new ReleaseError('No crates.io token: the trusted publishing exchange did not run. Check the trusted publisher of the crate (repository, workflow, environment).');
-    }
-    run('cargo', ['publish', '--locked', '--manifest-path', join(ctx.cwd, target.manifest)], { cwd: ctx.cwd, env: ctx.env, inherit: true });
-  } else {
+  } else if (target.registry === 'jsr') {
     run(process.execPath, [jsrCli(), 'publish'], { cwd: join(ctx.cwd, target.path), env: ctx.env, inherit: true });
   }
+}
+
+export type CrateTarget = Target & { name: string };
+
+/** One cargo call per workspace: cargo orders its crates by their dependencies and checks each one. */
+function crateCalls(targets: readonly CrateTarget[], cwd: string): Array<{ manifest: string; packages: string[] }> {
+  const calls = new Map<string, { manifest: string; packages: string[] }>();
+  for (const target of targets) {
+    const manifest = resolve(cwd, target.manifest);
+    const root = cargoMetadata(manifest).workspace_root;
+    const call = calls.get(root) ?? { manifest, packages: [] };
+    call.packages.push(target.name);
+    calls.set(root, call);
+  }
+  return [...calls.values()];
+}
+
+const cratePackages = (names: readonly string[]) => names.flatMap((name) => ['-p', name]);
+
+/** `cargo publish --dry-run` of the given crates, together (the later ones need the new version of the earlier ones). */
+export function dryRunCrates(targets: readonly CrateTarget[], ctx: RunContext): void {
+  for (const call of crateCalls(targets, ctx.cwd)) {
+    run('cargo', ['publish', '--dry-run', '--locked', '--allow-dirty', '--manifest-path', call.manifest, ...cratePackages(call.packages)], { cwd: ctx.cwd, env: ctx.env, inherit: true });
+  }
+}
+
+/** `cargo publish` of the given crates, together, with the OIDC token of crates.io. */
+export function publishCrates(targets: readonly CrateTarget[], ctx: RunContext): void {
+  if (!ctx.env.CARGO_REGISTRY_TOKEN) {
+    throw new ReleaseError('No crates.io token: the trusted publishing exchange did not run. Check the trusted publisher of the crate (repository, workflow, environment).');
+  }
+  for (const call of crateCalls(targets, ctx.cwd)) {
+    run('cargo', ['publish', '--locked', '--manifest-path', call.manifest, ...cratePackages(call.packages)], { cwd: ctx.cwd, env: ctx.env, inherit: true });
+  }
+}
+
+/** crates.io refuses a crate archive larger than this. */
+export const CRATE_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * What crates.io would refuse, found before anything is written: no description or no license
+ * (cargo only warns locally). A missing repository is only a warning: trusted publishing and
+ * crates.io do not need it.
+ */
+export function crateProblems(targets: readonly CrateTarget[], cwd: string): { problems: string[]; warnings: string[] } {
+  const problems: string[] = [];
+  const warnings: string[] = [];
+  for (const target of targets) {
+    const manifest = resolve(cwd, target.manifest);
+    const pkg = cargoMetadata(manifest).packages.find((p) => p.manifest_path === manifest);
+    if (!pkg) throw new ReleaseError(`${target.manifest} is not a member of its workspace.`);
+    if (!pkg.description) problems.push(`${target.name}: no description in ${target.manifest} (crates.io requires one)`);
+    if (!pkg.license && !pkg.license_file) problems.push(`${target.name}: no license or license-file in ${target.manifest} (crates.io requires one)`);
+    if (!pkg.repository) warnings.push(`${target.name}: no repository in ${target.manifest}`);
+  }
+  return { problems, warnings };
+}
+
+/** Crates whose archive, made by the dry-run, is too large for crates.io. */
+export function oversizedCrates(targets: readonly CrateTarget[], version: string, cwd: string): string[] {
+  return targets.flatMap((target) => {
+    const manifest = resolve(cwd, target.manifest);
+    const archive = join(cargoMetadata(manifest).target_directory, 'package', `${target.name}-${version}.crate`);
+    const size = existsSync(archive) ? statSync(archive).size : 0;
+    return size > CRATE_MAX_BYTES ? [`${target.name}: ${(size / 1024 / 1024).toFixed(1)} MB, more than the 10 MB crates.io accepts`] : [];
+  });
 }
