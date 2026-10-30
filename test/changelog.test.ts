@@ -88,6 +88,8 @@ describe('updateChangelog', () => {
   });
 
   it('says so when there is nothing notable', () => {
-    expect(updateChangelog(undefined, { ...update, generated: '' }).content).toContain('_No notable change._');
+    const empty = updateChangelog(undefined, { ...update, generated: '' });
+    expect(empty.content).toContain('_No notable change._');
+    expect(empty.notes).toBe('_No notable change._');
   });
 });

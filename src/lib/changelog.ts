@@ -109,8 +109,8 @@ export function updateChangelog(existing: string | undefined, input: UpdateInput
   if (end === -1) end = lines.length;
 
   const summary = lines.slice(start + 1, end).join('\n').trim();
-  const notes = [summary, input.generated].filter(Boolean).join('\n\n');
-  const section = [`## [${input.version}] - ${input.date}`, '', notes || '_No notable change._', ''];
+  const notes = [summary, input.generated].filter(Boolean).join('\n\n') || '_No notable change._';
+  const section = [`## [${input.version}] - ${input.date}`, '', notes, ''];
   lines.splice(start, end - start, '## [Unreleased]', '', ...section);
 
   return { content: updateLinks(lines.join('\n'), input).replace(/\n{3,}/g, '\n\n').replace(/\s*$/, '\n'), summary, notes };
