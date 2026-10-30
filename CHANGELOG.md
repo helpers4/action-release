@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
+### Breaking changes
+
+- **action**: 💥 take the configuration as inputs, with no .github/release.yml
+
 ## [0.3.1] - 2026-10-30
 
 ### Bug fixes
