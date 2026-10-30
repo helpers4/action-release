@@ -10,9 +10,8 @@ import { join } from 'node:path';
 import { compare } from 'helpers4/version';
 import { isTrue, loadJson, workspace, type Runtime } from '../lib/actions.ts';
 import { run } from '../lib/exec.ts';
-import { readVersion } from '../lib/manifests.ts';
 import { PLAN_FILE, type Plan } from '../lib/plan.ts';
-import { build, dryRun } from '../lib/registries.ts';
+import { build, dryRun, versionToPublish } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
 
 /** npm publishes with OIDC trusted publishing from this version on. */
@@ -51,7 +50,7 @@ export function wrongVersions(cwd: string, plan: Plan): string[] {
   return plan.targets
     .filter((t) => !t.published)
     .flatMap((t) => {
-      const found = readVersion(cwd, t.manifest);
+      const found = versionToPublish(t, cwd);
       return found !== undefined && found !== plan.version ? [`${t.manifest} has version ${found}, not ${plan.version}`] : [];
     });
 }
@@ -96,7 +95,7 @@ export function verify(deps: VerifyDeps): void {
     }
     log(`::group::${target.registry} dry-run: ${target.name}@${plan.version}`);
     try {
-      dryRun(target, plan.distTag, { cwd, env, log });
+      dryRun(target, plan.version, plan.distTag, { cwd, env, log });
     } catch {
       throw new ReleaseError(`The ${target.registry} dry-run of ${target.name} failed: fix what it reports in the log above. Nothing was written.`);
     } finally {

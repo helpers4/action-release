@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { detectTargets, loadConfig } from '../src/lib/config.ts';
 import { readVersion, setCargoVersion, setJsonVersion, updateCargoLock, writeVersion } from '../src/lib/manifests.ts';
+import { dryRun, versionToPublish } from '../src/lib/registries.ts';
 import { DEFAULT_SINCE_FILES, replaceSince } from '../src/lib/since.ts';
 import { TempRepo } from './helpers/repo.ts';
 
@@ -51,6 +52,22 @@ describe('writeVersion and Cargo.lock', () => {
     repo.write('Cargo.lock', '');
     expect(updateCargoLock(repo.dir, 'crates/core/Cargo.toml')).toEqual(['Cargo.lock']);
     expect(repo.read('Cargo.lock')).toMatch(/name = "h4-core"\nversion = "0\.2\.0"/);
+  });
+
+  it('reads the version cargo will publish, inherited from the workspace', () => {
+    repo = new TempRepo();
+    repo.write('Cargo.toml', '[workspace]\nmembers = ["crates/core"]\nresolver = "2"\n\n[workspace.package]\nversion = "0.3.0"\n');
+    repo.write('crates/core/Cargo.toml', '[package]\nname = "h4-core"\nversion.workspace = true\nedition = "2021"\n');
+    repo.write('crates/core/src/lib.rs', 'pub fn a() {}\n');
+    expect(readVersion(repo.dir, 'crates/core/Cargo.toml')).toBeUndefined();
+    expect(versionToPublish({ registry: 'crates', path: 'crates/core', manifest: 'crates/core/Cargo.toml' }, repo.dir)).toBe('0.3.0');
+  });
+
+  it('never publishes an npm tarball of another version', () => {
+    repo = new TempRepo();
+    repo.write('package.json', '{ "name": "h4-pack-test", "version": "0.0.0-development" }');
+    const target = { registry: 'npm' as const, path: '.', manifest: 'package.json' };
+    expect(() => dryRun(target, '0.0.5', 'latest', { cwd: repo!.dir, env: process.env, log: () => {} })).toThrow(/has version 0\.0\.0-development, not 0\.0\.5: it is not published/);
   });
 
   it('reads the version of each kind of manifest', () => {

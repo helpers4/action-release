@@ -20,7 +20,7 @@ export async function publish(deps: PublishDeps): Promise<Plan> {
   const { env, log, warn } = deps.runtime;
   const cwd = workspace(env);
   const plan = loadJson<Plan>(env, PLAN_FILE);
-  const doPublish = deps.publish ?? ((target, p, dir) => registryPublish(target, p.distTag, { cwd: dir, env, log }));
+  const doPublish = deps.publish ?? ((target, p, dir) => registryPublish(target, p.version, p.distTag, { cwd: dir, env, log }));
 
   const failures: string[] = [];
   const targets: PlannedTarget[] = [];
