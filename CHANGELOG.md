@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-30
+
+### Bug fixes
+
+- **version**: 🐛 continue after the tags that action-release 0.1.x left on no branch
+
 ## [0.3.0] - 2026-10-30
 
 ### Bug fixes
