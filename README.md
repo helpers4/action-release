@@ -73,8 +73,8 @@ jobs:
 ## What a release does
 
 1. **prepare**
-   - **Version**: from the last `v*` tag in the history of the branch and the Conventional Commits
-     since then: breaking change → major, `feat` → minor, otherwise patch. Before 1.0.0 everything
+   - **Version**: from the last `v*` tag in the history of the branch (or on a release commit whose
+     parent is in it, as action-release 0.1.x made them) and the Conventional Commits since then: breaking change → major, `feat` → minor, otherwise patch. Before 1.0.0 everything
      shifts down: breaking → minor, `feat` → patch. `bump` forces a level, or a prerelease
      (`alpha`, `beta`, `rc`), numbered from `.0`. With no tag yet, the version of the manifest is the
      base.

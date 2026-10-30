@@ -54,6 +54,24 @@ describe('prepare', () => {
     expect(loadJson<Plan>(runtime.env, PLAN_FILE).version).toBe('0.2.5');
   });
 
+  it('continues after the tags of release commits that are on no branch (action-release 0.1.x)', async () => {
+    repo = new TempRepo();
+    repo.commit('feat: first', { 'package.json': '{\n  "name": "folioscope",\n  "version": "0.0.0"\n}\n' });
+    repo.tag('v0.0.2');
+    repo.commit('fix: released in 0.0.3');
+    repo.git('checkout', '-q', '--detach');
+    repo.commit('chore(release): 🔖 v0.0.3');
+    repo.tag('v0.0.3');
+    repo.git('checkout', '-q', 'main');
+    repo.commit('fix: not released yet');
+
+    const plan = await prepare({ runtime: fakeRuntime(repo.dir), gh: () => new FakeGh('main', 'x'), today });
+
+    expect(plan).toMatchObject({ version: '0.0.4', previousTag: 'v0.0.3' });
+    expect(plan.notes).toContain('Not released yet');
+    expect(plan.notes).not.toContain('Released in 0.0.3');
+  });
+
   it('plans a prerelease with its dist-tag, not latest', async () => {
     library();
     const plan = await prepare({ runtime: fakeRuntime(repo.dir, { INPUT_BUMP: 'beta' }), gh: () => new FakeGh('main', 'x'), today });

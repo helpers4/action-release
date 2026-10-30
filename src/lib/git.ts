@@ -16,9 +16,14 @@ export const git = (cwd: string, ...args: string[]): string => run('git', args, 
 
 export const headSha = (cwd: string): string => git(cwd, 'rev-parse', 'HEAD');
 
-/** `v*` tags whose commit is in the history of HEAD (release tags are on the branch). */
-export const tagsMergedInHead = (cwd: string): string[] =>
-  git(cwd, 'tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(Boolean);
+/**
+ * `v*` tags released from the history of HEAD: their commit is in it (release tags are on the
+ * branch), or its parent is (the release commits of action-release 0.1.x were on no branch).
+ */
+export const tagsMergedInHead = (cwd: string): string[] => {
+  const merged = new Set(git(cwd, 'tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(Boolean));
+  return allTags(cwd).filter((tag) => merged.has(tag) || isAncestor(cwd, `refs/tags/${tag}^{commit}^`, 'HEAD'));
+};
 
 /** Every `v*` tag of the repository, whatever the branch (prerelease counters use them all). */
 export const allTags = (cwd: string): string[] =>

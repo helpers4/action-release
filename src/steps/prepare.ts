@@ -55,6 +55,13 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
     return save(deps, await resumePlan(deps, cwd, config, branch, `v${latest}`, all));
   }
 
+  // A run started again after its release commit was tagged (Re-run failed jobs): finish it.
+  const rerun = all.map((v) => `v${v}`).find((t) => tagCommit(cwd, `${t}^`) === base);
+  if (rerun) {
+    log(`${rerun} was already released from this commit: resuming it.`);
+    return save(deps, await resumePlan(deps, cwd, config, branch, rerun, all));
+  }
+
   const merged = versionsOfTags(tagsMergedInHead(cwd));
   const primary = config.targets[0]?.manifest ?? config.versionFiles[0];
   const lastStable = merged.find((v) => parse(v).prerelease.length === 0);
@@ -67,13 +74,6 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
     manifestVersion: primary ? readVersion(cwd, primary) : undefined,
   });
   const tag = `v${version}`;
-
-  // A run started again after its release commit was tagged (Re-run failed jobs): finish it.
-  const tagged = tagCommit(cwd, tag);
-  if (tagged && git(cwd, 'rev-parse', `${tagged}^`) === base) {
-    log(`${tag} was already released from this commit: resuming it.`);
-    return save(deps, await resumePlan(deps, cwd, config, branch, tag, all));
-  }
   assertNew(version, all);
 
   log(`Releasing ${tag}${previous ? ` (after v${previous})` : ''}.`);
