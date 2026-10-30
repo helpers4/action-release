@@ -25,10 +25,37 @@ inputs:
     description: Private key of that GitHub App
     required: false
     default: ""
-  config:
-    description: Path of the optional release configuration
+  targets:
+    description: >-
+      What is published, in this order, as a YAML list of `npm`, `crates` or `jsr` with the package
+      directory and an optional `build` command. Empty: the root package.json (unless private),
+      Cargo.toml (unless publish = false) and jsr.json / deno.json
     required: false
-    default: .github/release.yml
+    default: ""
+  version-files:
+    description: Other manifests that carry the version without being published (one per line)
+    required: false
+    default: ""
+  changelog:
+    description: Changelog file
+    required: false
+    default: CHANGELOG.md
+  since-marker:
+    description: Placeholder of the @since tags (`@since next`)
+    required: false
+    default: next
+  since-files:
+    description: Globs of the tracked files whose @since markers get the version (one per line); empty for none
+    required: false
+    default: "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,rs}"
+  since-json:
+    description: JSON maps whose "next" values get the version, such as api-since.json (one per line)
+    required: false
+    default: ""
+  floating-major:
+    description: Move the major tag (v1) to each stable release, as GitHub Actions are referenced
+    required: false
+    default: "false"
   github-token:
     description: Token for the GitHub Release (the job needs contents write)
     required: false
@@ -59,7 +86,13 @@ runs:
       env:
         INPUT_BUMP: ${{ inputs.bump }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
-        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_TARGETS: ${{ inputs.targets }}
+        INPUT_VERSION_FILES: ${{ inputs.version-files }}
+        INPUT_CHANGELOG: ${{ inputs.changelog }}
+        INPUT_SINCE_MARKER: ${{ inputs.since-marker }}
+        INPUT_SINCE_FILES: ${{ inputs.since-files }}
+        INPUT_SINCE_JSON: ${{ inputs.since-json }}
+        INPUT_FLOATING_MAJOR: ${{ inputs.floating-major }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: node "$GITHUB_ACTION_PATH/src/main.ts" prepare
 

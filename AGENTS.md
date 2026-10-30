@@ -32,8 +32,10 @@ Running it again resumes: what is already done is skipped.
   `registries` (npm, cargo, jsr commands and lookups), `github` (the `Gh` interface over the REST API)
 - `docs/troubleshooting.md` — one section per message; keep it in step with the errors
 - `test/` — vitest; real temporary git repositories, `FakeGh` and a fake registry
-- `.github/workflows/release.yml` + `.github/release.yml` — this action releases itself with
-  `uses: ./` (no registry, `floating-major: true` moves `v0`)
+- `.github/workflows/release.yml` — this action releases itself with `uses: ./` (no registry,
+  `floating-major: true` moves `v0`, `since-files: ""` keeps the `@since next` examples)
+- No configuration file: everything is an input of the action (`action.yml` → `INPUT_*` →
+  `src/lib/config.ts`)
 
 ## Rules specific to this repo
 
@@ -47,7 +49,7 @@ Running it again resumes: what is already done is skipped.
 - GitHub calls go through the `Gh` interface; the registries' lookups take an injectable `fetch`.
 - Never publish to a registry for real without the maintainer's agreement. End-to-end runs use
   the sandbox repository `helpers4/test-action-release-public` (its `release.yml` calls the branch
-  under test; `.github/release-all.yml` dry-runs npm, crates and JSR).
+  under test; `release-all.yml` dry-runs npm, crates and JSR).
 
 ## Commands
 
