@@ -79,7 +79,7 @@ jobs:
      (`alpha`, `beta`, `rc`), numbered from `.0`. With no tag yet, the version of the manifest is the
      base.
    - **Manifests**: the version is written in `package.json`, `Cargo.toml` (and `Cargo.lock`, with
-     `cargo update --workspace`), `jsr.json` / `deno.json`, and the `version-files`.
+     `cargo update --workspace`; the requirements between crates released together follow), `jsr.json` / `deno.json`, and the `version-files`.
    - **Changelog**: the human summary written under `## [Unreleased]` of `CHANGELOG.md` becomes the
      top of the new `## [X.Y.Z] - date` section, followed by the list generated from the commits by
      [git-cliff](https://git-cliff.org) (your `cliff.toml` if any). An empty `[Unreleased]` stays on
@@ -127,9 +127,15 @@ and `jsr.json` / `deno.json` are released. Otherwise:
           targets: |
             - npm: packages/folioscope
               build: pnpm --filter folioscope build:wasm && pnpm --filter folioscope build
-            - crates: crates/core               # build: optional for every target
+            - crates: .                         # a workspace: every crate that may be published
             - jsr: .
 ```
+
+`crates: .` on a workspace publishes all its crates that do not have `publish = false`; `crates: crates/core`
+publishes one. The crates of a workspace go to a single `cargo publish`, which orders them by their
+dependencies and checks each one, so the later ones need no earlier version on crates.io. The release writes
+the version in `[workspace.package]` and in the `version` of the `{ path = "…", version = "…" }` dependencies
+between them (one-line tables). A `build` on a workspace runs once.
 
 Without `build`, an npm package runs its `build` script with your package manager; crates and JSR
 packages are built by their own dry-run.

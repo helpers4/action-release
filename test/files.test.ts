@@ -6,10 +6,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { detectTargets, loadConfig } from '../src/lib/config.ts';
-import { readVersion, setCargoVersion, setJsonVersion, updateCargoLock, writeVersion } from '../src/lib/manifests.ts';
-import { dryRun, versionToPublish } from '../src/lib/registries.ts';
+import { readVersion, setCargoVersion, setInternalVersions, setJsonVersion, updateCargoLock, writeVersion } from '../src/lib/manifests.ts';
+import { crateProblems, dryRun, dryRunCrates, oversizedCrates, versionToPublish } from '../src/lib/registries.ts';
 import { DEFAULT_SINCE_FILES, replaceSince } from '../src/lib/since.ts';
-import { TempRepo } from './helpers/repo.ts';
+import { cargoWorkspace, TempRepo } from './helpers/repo.ts';
 
 let repo: TempRepo | undefined;
 afterEach(() => repo?.dispose());
@@ -76,6 +76,70 @@ describe('writeVersion and Cargo.lock', () => {
     expect(readVersion(repo.dir, 'package.json')).toBe('1.0.0');
     expect(readVersion(repo.dir, 'Cargo.toml')).toBe('2.0.0');
     expect(readVersion(repo.dir, 'jsr.json')).toBeUndefined();
+  });
+});
+
+describe('crates of a workspace', () => {
+  const names = new Set(['h4x-core', 'h4x-bake']);
+
+  it('sets the version of the dependencies on the crates released together', () => {
+    const text = [
+      '[workspace.dependencies]',
+      'h4x-core = { path = "crates/core", version = "0.0.6" }',
+      'h4x-bake = { path = "crates/bake", version = "0.0.6" } # the baker',
+      'other = { path = "crates/other", version = "0.0.6" }',
+      'serde = { version = "1", features = ["derive"] }',
+      'renamed = { package = "h4x-core", path = "../core", version = "0.0.6", rust-version = "1.80" }',
+      'h4x-core = "0.0.6"',
+    ].join('\n');
+    expect(setInternalVersions(text, names, '0.1.0').split('\n')).toEqual([
+      '[workspace.dependencies]',
+      'h4x-core = { path = "crates/core", version = "0.1.0" }',
+      'h4x-bake = { path = "crates/bake", version = "0.1.0" } # the baker',
+      'other = { path = "crates/other", version = "0.0.6" }',
+      'serde = { version = "1", features = ["derive"] }',
+      'renamed = { package = "h4x-core", path = "../core", version = "0.1.0", rust-version = "1.80" }',
+      'h4x-core = "0.0.6"',
+    ]);
+  });
+
+  it('expands crates: . into the members that may go to crates.io, building once', () => {
+    repo = new TempRepo();
+    for (const [path, content] of Object.entries(cargoWorkspace())) repo.write(path, content);
+    const config = loadConfig(repo.dir, { INPUT_TARGETS: '- crates: .\n  build: echo built\n' });
+    expect(config.targets.map((t) => t.manifest).sort()).toEqual(['crates/bake/Cargo.toml', 'crates/cli/Cargo.toml', 'crates/core/Cargo.toml']);
+    expect(config.targets.filter((t) => t.build)).toHaveLength(1);
+    expect(config.targets.every((t) => t.registry === 'crates' && t.path === t.manifest.replace('/Cargo.toml', ''))).toBe(true);
+
+    repo.write('Cargo.toml', '[workspace]\nmembers = ["crates/wasm"]\nresolver = "3"\n');
+    repo.write('crates/wasm/Cargo.toml', '[package]\nname = "h4x-wasm"\nversion = "0.0.1"\nedition = "2024"\npublish = false\n');
+    expect(() => loadConfig(repo!.dir, { INPUT_TARGETS: '- crates: .\n' })).toThrow(/every crate has publish = false/);
+  });
+
+  it('refuses a crate crates.io would refuse, before anything is written', () => {
+    repo = new TempRepo();
+    const files = cargoWorkspace();
+    files['crates/core/Cargo.toml'] = files['crates/core/Cargo.toml']!.replace('description = "A crate"\n', '');
+    files['crates/bake/Cargo.toml'] = files['crates/bake/Cargo.toml']!.replace('repository.workspace = true\n', '').replace('license.workspace = true\n', '');
+    for (const [path, content] of Object.entries(files)) repo.write(path, content);
+    const targets = ['core', 'bake'].map((dir) => ({ registry: 'crates' as const, path: `crates/${dir}`, manifest: `crates/${dir}/Cargo.toml`, name: `h4x-${dir}` }));
+    const { problems, warnings } = crateProblems(targets, repo.dir);
+    expect(problems).toEqual([expect.stringMatching(/h4x-core: no description/), expect.stringMatching(/h4x-bake: no license/)]);
+    expect(warnings).toEqual([expect.stringMatching(/h4x-bake: no repository/)]);
+  });
+
+  it('dry-runs the crates together, even when the first one is not on crates.io yet', () => {
+    repo = new TempRepo();
+    for (const [path, content] of Object.entries(cargoWorkspace())) repo.write(path, content);
+    const targets = ['core', 'bake', 'cli'].map((dir) => ({
+      registry: 'crates' as const,
+      path: `crates/${dir}`,
+      manifest: `crates/${dir}/Cargo.toml`,
+      name: dir === 'cli' ? 'h4x' : `h4x-${dir}`,
+    }));
+    const logs: string[] = [];
+    dryRunCrates(targets, { cwd: repo.dir, env: { ...process.env }, log: (m) => logs.push(m) });
+    expect(oversizedCrates(targets, '0.0.6', repo.dir)).toEqual([]);
   });
 });
 

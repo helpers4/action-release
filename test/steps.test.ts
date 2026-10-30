@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadJson } from '../src/lib/actions.ts';
 import { GitHubError } from '../src/lib/github.ts';
@@ -14,7 +15,7 @@ import { prepare } from '../src/steps/prepare.ts';
 import { publish } from '../src/steps/publish.ts';
 import { preflight, verify, wrongVersions } from '../src/steps/verify.ts';
 import { FakeGh, fakeRegistry, fakeRuntime } from './helpers/fake.ts';
-import { TempRepo } from './helpers/repo.ts';
+import { cargoWorkspace, TempRepo } from './helpers/repo.ts';
 
 let repo: TempRepo;
 afterEach(() => repo?.dispose());
@@ -251,5 +252,60 @@ describe('commit, publish, finalize', () => {
     expect(runtime.outputs['release-url']).toBe(url);
     const plan = loadJson<Plan>(runtime.env, PLAN_FILE);
     expect(summary(plan, url)).toContain('[`mozlz4@0.2.5`](https://www.npmjs.com/package/mozlz4/v/0.2.5)');
+  });
+});
+
+describe('a workspace of crates', () => {
+  const env = { INPUT_TARGETS: '- crates: .\n' };
+
+  /** folioscope-like: one version for the workspace, tagged v0.0.6, a fix since. */
+  function released(): TempRepo {
+    repo = new TempRepo();
+    repo.commit('feat: first', cargoWorkspace('0.0.6'));
+    execFileSync('cargo', ['generate-lockfile'], { cwd: repo.dir, stdio: 'ignore' });
+    repo.commit('chore: lock');
+    repo.tag('v0.0.6');
+    repo.commit('fix: something');
+    return repo;
+  }
+
+  it('writes the version in the workspace, in the requirements between the crates, and in Cargo.lock', async () => {
+    released();
+    const plan = await prepare({ runtime: fakeRuntime(repo.dir, env), gh: () => new FakeGh('main', 'x'), today });
+
+    expect(plan).toMatchObject({ version: '0.0.7', tag: 'v0.0.7' });
+    expect(plan.targets.map((t) => t.name).sort()).toEqual(['h4x', 'h4x-bake', 'h4x-core']);
+    expect(plan.files).toEqual(['CHANGELOG.md', 'Cargo.lock', 'Cargo.toml']);
+    const root = repo.read('Cargo.toml');
+    expect(root).toContain('[workspace.package]\nversion = "0.0.7"');
+    expect(root).toContain('h4x-core = { path = "crates/core", version = "0.0.7" }');
+    expect(root).toContain('h4x-bake = { path = "crates/bake", version = "0.0.7" } # the baker');
+    expect(repo.read('Cargo.lock')).toMatch(/name = "h4x-bake"\nversion = "0\.0\.7"/);
+  });
+
+  it('publishes the missing crates together, and keeps what a failed call already published', async () => {
+    released();
+    const runtime = fakeRuntime(repo.dir, env);
+    await prepare({ runtime, gh: () => new FakeGh('main', 'x'), today });
+
+    const served = ['h4x-core@0.0.7'];
+    const fetchImpl = ((input: string | URL | Request) => fakeRegistry(served)(input)) as ReturnType<typeof fakeRegistry>;
+    const calls: string[][] = [];
+    await expect(
+      publish({
+        runtime,
+        fetchImpl,
+        publishCrates: (targets) => {
+          calls.push(targets.map((t) => t.name).sort());
+          served.push('h4x-bake@0.0.7');
+          throw new Error('crates.io refused h4x\nmore');
+        },
+      }),
+    ).rejects.toThrow(/v0.0.7 is tagged but not published on crates \(h4x@0.0.7\)/);
+    expect(calls).toEqual([['h4x', 'h4x-bake']]);
+
+    const again = await publish({ runtime, fetchImpl, publishCrates: (targets) => calls.push(targets.map((t) => t.name)) });
+    expect(calls[1]).toEqual(['h4x']);
+    expect(again.targets.every((t) => t.published)).toBe(true);
   });
 });

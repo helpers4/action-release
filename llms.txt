@@ -9,7 +9,7 @@ Use `helpers4/action-release@v0` as one step of the release job, after the proje
 - Steps: prepare (version, manifests, Cargo.lock, CHANGELOG.md, @since) → verify (project build, `npm publish --dry-run`, `cargo publish --dry-run`, `jsr publish --dry-run`) → commit (signed, fast-forward only, tag, draft Release) → publish → finalize (Release notes = human summary + generated list).
 - Nothing is written before verify passes. After the commit, rerunning (or `bump: resume`) publishes only what is missing.
 - Before 1.0.0 a `feat` is a patch and a breaking change a minor. Prereleases are numbered from `.0`.
-- Optional inputs, no configuration file: `targets` (YAML list of npm, crates, jsr with a path and a build), `version-files`, `changelog`, `since-marker`, `since-files`, `since-json`, `floating-major`.
+- Optional inputs, no configuration file: `targets` (YAML list of npm, crates, jsr with a path and a build; `crates: .` on a Cargo workspace publishes all its publishable crates together, in dependency order), `version-files`, `changelog`, `since-marker`, `since-files`, `since-json`, `floating-major`.
 - One version per repository. npm and crates.io need the first version published by hand before a trusted publisher can be set.
 
 ## Docs

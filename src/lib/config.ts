@@ -5,9 +5,9 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { cargoPublishes, JSR_MANIFESTS } from './manifests.ts';
+import { cargoMetadata, cargoPublishes, isVirtualWorkspace, JSR_MANIFESTS, publishesToCrates, repoPath } from './manifests.ts';
 import { DEFAULT_SINCE_FILES, type SinceConfig } from './since.ts';
 import { ReleaseError } from './version.ts';
 
@@ -69,6 +69,23 @@ export function detectTargets(cwd: string): Target[] {
   return targets;
 }
 
+/**
+ * The crates of a workspace (`crates: .`): every member that may go to crates.io. Cargo publishes
+ * them together, in dependency order; the build, if any, runs once.
+ */
+function workspaceCrates(cwd: string, manifest: string, build: string | undefined): Target[] {
+  const publishable = cargoMetadata(join(cwd, manifest)).packages.filter(publishesToCrates);
+  if (publishable.length === 0) {
+    throw new ReleaseError(`${manifest} is a workspace where every crate has publish = false: there is nothing to publish on crates.io.`);
+  }
+  return publishable.map((pkg, i) => ({
+    registry: 'crates',
+    path: repoPath(cwd, dirname(pkg.manifest_path)),
+    manifest: repoPath(cwd, pkg.manifest_path),
+    ...(i === 0 && build ? { build } : {}),
+  }));
+}
+
 /** A list input: one item per line (or separated by commas). */
 const list = (value: string): string[] =>
   value
@@ -85,14 +102,18 @@ export function loadConfig(cwd: string, env: NodeJS.ProcessEnv): Config {
   const raw = env.INPUT_TARGETS?.trim() ? (parseYaml(env.INPUT_TARGETS) as unknown) : [];
   if (!Array.isArray(raw)) throw new ReleaseError('targets must be a YAML list, such as "- npm: packages/lib".');
 
-  const targets = (raw as RawTarget[]).map((entry, i): Target => {
+  const targets = (raw as RawTarget[]).flatMap((entry, i): Target[] => {
     const registries = REGISTRIES.filter((r) => typeof entry?.[r] === 'string');
     if (registries.length !== 1) {
       throw new ReleaseError(`targets[${i}] must have exactly one of ${REGISTRIES.join(', ')}.`);
     }
     const registry = registries[0]!;
     const dir = clean(entry[registry]!);
-    return { registry, path: dir, manifest: manifestOf(cwd, registry, dir), ...(entry.build ? { build: entry.build } : {}) };
+    const manifest = manifestOf(cwd, registry, dir);
+    if (registry === 'crates' && isVirtualWorkspace(readFileSync(join(cwd, manifest), 'utf8'))) {
+      return workspaceCrates(cwd, manifest, entry.build);
+    }
+    return [{ registry, path: dir, manifest, ...(entry.build ? { build: entry.build } : {}) }];
   });
 
   return {

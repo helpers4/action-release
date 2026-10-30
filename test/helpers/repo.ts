@@ -55,3 +55,47 @@ export class TempRepo {
     rmSync(this.dir, { recursive: true, force: true });
   }
 }
+
+/** A Cargo workspace like folioscope's: core, bake (needs core), cli (needs both) and wasm (`publish = false`). */
+export function cargoWorkspace(version = '0.0.6'): Record<string, string> {
+  const crate = (name: string, extra: string, deps: string) =>
+    [
+      '[package]',
+      `name = "${name}"`,
+      'description = "A crate"',
+      'version.workspace = true',
+      'edition.workspace = true',
+      'license.workspace = true',
+      'repository.workspace = true',
+      extra,
+      '[dependencies]',
+      deps,
+      '',
+    ].join('\n');
+  return {
+    'Cargo.toml': [
+      '[workspace]',
+      'resolver = "3"',
+      'members = ["crates/*"]',
+      '',
+      '[workspace.package]',
+      `version = "${version}"`,
+      'edition = "2024"',
+      'license = "AGPL-3.0-or-later"',
+      'repository = "https://github.com/baxyz/h4x"',
+      '',
+      '[workspace.dependencies]',
+      `h4x-core = { path = "crates/core", version = "${version}" }`,
+      `h4x-bake = { path = "crates/bake", version = "${version}" } # the baker`,
+      '',
+    ].join('\n'),
+    'crates/core/Cargo.toml': crate('h4x-core', '', ''),
+    'crates/core/src/lib.rs': 'pub fn a() {}\n',
+    'crates/bake/Cargo.toml': crate('h4x-bake', '', 'h4x-core.workspace = true'),
+    'crates/bake/src/lib.rs': 'pub fn b() {}\n',
+    'crates/cli/Cargo.toml': crate('h4x', '', 'h4x-core.workspace = true\nh4x-bake.workspace = true'),
+    'crates/cli/src/main.rs': 'fn main() {}\n',
+    'crates/wasm/Cargo.toml': crate('h4x-wasm', 'publish = false', 'h4x-bake.workspace = true'),
+    'crates/wasm/src/lib.rs': 'pub fn w() {}\n',
+  };
+}

@@ -38,6 +38,12 @@ npm publishes with OIDC from 11.5.1. Node 24 ships a recent enough npm: `actions
 
 Set the `app-id` and `app-key` inputs (see *One-time setup* in the README).
 
+### "crates.io would refuse: …"
+
+A crate has no `description` or no `license` / `license-file` (cargo only warns locally, crates.io
+refuses at upload), or its archive is over 10 MB. Fix it in the crate's `Cargo.toml` (or the
+`[workspace.package]` it inherits from). Nothing was written.
+
 ### "The build of … failed" / "The npm (cargo, jsr) dry-run of … failed"
 
 The registry's own tool reports the problem in the log above the message (a missing license for
@@ -64,6 +70,11 @@ the package must exist already (publish the first version by hand).
 The release commit of vY did not write the version in that manifest (the target was added after
 it was tagged, for instance). Publishing it would publish version X. Nothing was published: release
 the next version, which writes the version in every manifest.
+
+### A crate of a workspace was published, not the next one
+
+The crates go out in one `cargo publish`, in dependency order: if it stops in the middle, the first
+ones are on crates.io. Fix the cause and *Re-run failed jobs*: only the missing crates are published.
 
 ### "No crates.io token"
 
