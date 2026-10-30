@@ -26,8 +26,14 @@ Running it again resumes: what is already done is skipped.
 
 - `action.yml` — composite action; each step runs `node src/main.ts <step>`
 - `src/install.sh` — checks Node and installs the runtime dependencies (`npm ci --omit=dev`)
-- `src/` — the engine, TypeScript run by Node's type stripping (no build, no `dist/`)
-- `test/` — vitest
+- `src/steps/` — one file per step (`prepare`, `verify`, `commit`, `publish`, `finalize`); they
+  share `plan.json` in `$RUNNER_TEMP/h4-release`
+- `src/lib/` — `version`, `changelog` (git-cliff + `[Unreleased]`), `manifests`, `since`, `config`,
+  `registries` (npm, cargo, jsr commands and lookups), `github` (the `Gh` interface over the REST API)
+- `docs/troubleshooting.md` — one section per message; keep it in step with the errors
+- `test/` — vitest; real temporary git repositories, `FakeGh` and a fake registry
+- `.github/workflows/release.yml` + `.github/release.yml` — this action releases itself with
+  `uses: ./` (no registry, `floating-major: true` moves `v0`)
 
 ## Rules specific to this repo
 
@@ -38,8 +44,10 @@ Running it again resumes: what is already done is skipped.
 - Use each ecosystem's standard tool (`npm`/`pnpm`, `cargo`, `jsr`); never re-implement what they do.
 - Prefer the `helpers4` package (`helpers4/commit`, `helpers4/version` …) over new code.
 - Third-party actions are pinned by commit SHA.
+- GitHub calls go through the `Gh` interface; the registries' lookups take an injectable `fetch`.
 - Never publish to a registry for real without the maintainer's agreement. End-to-end runs use
-  the sandbox repository `helpers4/test-action-release-public`.
+  the sandbox repository `helpers4/test-action-release-public` (its `release.yml` calls the branch
+  under test; `.github/release-all.yml` dry-runs npm, crates and JSR).
 
 ## Commands
 

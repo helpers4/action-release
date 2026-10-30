@@ -30,6 +30,8 @@ export interface Config {
   versionFiles: string[];
   changelog: string;
   since: SinceConfig;
+  /** Move the major tag (`v1`) to each stable release, as GitHub Actions are referenced. */
+  floatingMajor: boolean;
 }
 
 interface RawTarget {
@@ -44,6 +46,7 @@ interface RawConfig {
   'version-files'?: string[];
   changelog?: string;
   since?: { marker?: string; files?: string[]; json?: string[] };
+  'floating-major'?: boolean;
 }
 
 const clean = (path: string) => posix.normalize(path.replace(/^\.\/+/, '').replace(/\/+$/, '') || '.');
@@ -98,5 +101,6 @@ export function loadConfig(cwd: string, file: string): Config {
       files: raw.since?.files ?? DEFAULT_SINCE_FILES,
       json: (raw.since?.json ?? []).map(clean),
     },
+    floatingMajor: raw['floating-major'] === true,
   };
 }

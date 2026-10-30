@@ -1,0 +1,18 @@
+# helpers4 release
+
+> GitHub Action that releases a TypeScript, Rust or mixed repository in one step: version from Conventional Commits, changelog ([Unreleased] summary + git-cliff list), @since markers, a signed release commit pushed to the protected branch by a GitHub App, tag, GitHub Release, and publication to npm, crates.io and JSR with their own tools and OIDC trusted publishing.
+
+Use `helpers4/action-release@v0` as one step of the release job, after the project's setup steps, with `fetch-depth: 0`, `permissions: { contents: write, id-token: write }`, and the `app-id` / `app-key` inputs of the App allowed to bypass the branch protection.
+
+## Key facts
+
+- Steps: prepare (version, manifests, Cargo.lock, CHANGELOG.md, @since) → verify (project build, `npm publish --dry-run`, `cargo publish --dry-run`, `jsr publish --dry-run`) → commit (signed, fast-forward only, tag, draft Release) → publish → finalize (Release notes = human summary + generated list).
+- Nothing is written before verify passes. After the commit, rerunning (or `bump: resume`) publishes only what is missing.
+- Before 1.0.0 a `feat` is a patch and a breaking change a minor. Prereleases are numbered from `.0`.
+- Optional configuration in `.github/release.yml`: `targets` (npm, crates, jsr with a path and a build), `version-files`, `changelog`, `since` (marker, files, json maps), `floating-major`.
+- One version per repository. npm and crates.io need the first version published by hand before a trusted publisher can be set.
+
+## Docs
+
+- [README](https://github.com/helpers4/action-release/blob/main/README.md)
+- [Troubleshooting](https://github.com/helpers4/action-release/blob/main/docs/troubleshooting.md)

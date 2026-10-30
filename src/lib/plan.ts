@@ -40,6 +40,8 @@ export interface Plan {
   /** npm dist-tag of the version. */
   distTag: string;
   targets: PlannedTarget[];
+  /** The major tag to move to this release (`v1`), for GitHub Actions. */
+  floatingTag?: string;
   /** The release commit, once it exists. */
   commit?: string;
   /** The draft Release, once created (listing Releases right after creating one may miss it). */

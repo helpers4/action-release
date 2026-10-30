@@ -44,6 +44,9 @@ export class FakeGh implements Gh {
     this.tags.set(tag, sha);
     return true;
   }
+  async moveTag(tag: string, sha: string) {
+    this.tags.set(tag, sha);
+  }
   async releaseByTag(tag: string) {
     return this.releases.find((r) => r.tag === tag && !(this.staleListing && r.draft));
   }

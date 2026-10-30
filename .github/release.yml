@@ -1,0 +1,3 @@
+# Release of this action: no registry; the major tag (v0) follows each stable release.
+version-files: [package.json]
+floating-major: true

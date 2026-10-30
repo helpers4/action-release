@@ -111,6 +111,7 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
     latest: !prerelease && !stable.some((v) => compare(v, version) > 0),
     distTag: distTag(version, stable),
     targets: config.targets.map((t) => ({ ...t, name: packageName(cwd, t), published: false })),
+    ...(config.floatingMajor && !prerelease && !stable.some((v) => compare(v, version) > 0) ? { floatingTag: `v${parse(version).major}` } : {}),
   });
 }
 

@@ -127,6 +127,19 @@ describe('commit, publish, finalize', () => {
     expect(checkouts).toEqual([plan.commit]);
   });
 
+  it('moves the floating major tag of an action to a stable release', async () => {
+    library();
+    repo.commit('chore: config', { '.github/release.yml': 'floating-major: true\n' });
+    const runtime = fakeRuntime(repo.dir);
+    const gh = new FakeGh('main', repo.git('rev-parse', 'HEAD'));
+    expect((await prepare({ runtime, gh: () => gh, today })).floatingTag).toBe('v0');
+    const plan = await commit({ runtime, appGh: gh, gh, checkout: () => {} });
+    expect(gh.tags.get('v0')).toBe(plan.commit);
+
+    const beta = await prepare({ runtime: fakeRuntime(repo.dir, { INPUT_BUMP: 'beta' }), gh: () => gh, today });
+    expect(beta.floatingTag).toBeUndefined();
+  });
+
   it('stops before writing when the branch moved', async () => {
     const { runtime, gh } = await prepared();
     gh.heads.main = { sha: 'someone-else', message: 'fix: other', parents: ['x'] };
