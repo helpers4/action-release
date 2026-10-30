@@ -76,11 +76,13 @@ export async function commit(deps: CommitDeps): Promise<Plan> {
   return done;
 }
 
-/** Fetches the release commit with the job's token (the checkout keeps no credentials) and checks it out. */
-const checkoutCommit = (env: NodeJS.ProcessEnv) => (cwd: string, sha: string) => {
+/**
+ * Fetches the release commit with the job's token (the checkout keeps no credentials) and checks it
+ * out. Forced: the files prepare wrote are in the commit, including new ones git sees as untracked.
+ */
+export const checkoutCommit = (env: NodeJS.ProcessEnv) => (cwd: string, sha: string) => {
   const basic = Buffer.from(`x-access-token:${env.GITHUB_TOKEN ?? ''}`).toString('base64');
   const server = env.GITHUB_SERVER_URL ?? 'https://github.com';
   git(cwd, '-c', `http.${server}/.extraheader=AUTHORIZATION: basic ${basic}`, 'fetch', '-q', '--no-tags', 'origin', sha);
-  git(cwd, 'reset', '-q', '--hard');
-  git(cwd, 'checkout', '-q', '--detach', sha);
+  git(cwd, 'checkout', '-q', '--force', '--detach', sha);
 };
