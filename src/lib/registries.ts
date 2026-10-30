@@ -6,12 +6,12 @@
 
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compare, parse } from 'helpers4/version';
 import type { Registry, Target } from './config.ts';
 import { run, shell } from './exec.ts';
-import { cargoPackageName } from './manifests.ts';
+import { cargoPackageName, readVersion } from './manifests.ts';
 import { ReleaseError } from './version.ts';
 
 export type Fetch = typeof fetch;
@@ -86,8 +86,21 @@ export function build(target: Target, ctx: RunContext): void {
   run(pm, ['run', 'build'], { cwd: dir, env: ctx.env, inherit: true });
 }
 
+/**
+ * The version the registry tool will publish: `cargo metadata` resolves `version.workspace`; npm
+ * and JSR take the one of their manifest (the npm tarball is checked again once packed).
+ */
+export function versionToPublish(target: Target, cwd: string): string | undefined {
+  if (target.registry !== 'crates') return readVersion(cwd, target.manifest);
+  const manifest = resolve(cwd, target.manifest);
+  const metadata = JSON.parse(run('cargo', ['metadata', '--no-deps', '--format-version', '1', '--manifest-path', manifest], { cwd })) as {
+    packages: Array<{ manifest_path: string; version: string }>;
+  };
+  return metadata.packages.find((p) => p.manifest_path === manifest)?.version;
+}
+
 /** Packs an npm target with the project's package manager (it resolves workspace: and catalog:). */
-function pack(target: Target, ctx: RunContext, destination: string): string {
+function pack(target: Target, ctx: RunContext, destination: string, version: string): string {
   const dir = join(ctx.cwd, target.path);
   const pm = packageManager(ctx.cwd);
   const args =
@@ -95,18 +108,21 @@ function pack(target: Target, ctx: RunContext, destination: string): string {
   run(pm, args, { cwd: dir, env: ctx.env, inherit: true });
   const tarball = readdirSync(destination).find((file) => file.endsWith('.tgz'));
   if (!tarball) throw new ReleaseError(`${pm} pack produced no tarball for ${target.path}.`);
-  return join(destination, tarball);
+  const path = join(destination, tarball);
+  const packed = (JSON.parse(run('tar', ['-xzOf', path, 'package/package.json'], { cwd: destination })) as { version?: string }).version;
+  if (packed !== version) throw new ReleaseError(`The tarball of ${target.path} has version ${packed}, not ${version}: it is not published.`);
+  return path;
 }
 
 /**
  * Runs the registry's own dry-run of the publication. npm runs from a scratch directory: in the
  * repository, it would obey the project's package manager pins (devEngines).
  */
-export function dryRun(target: Target, tag: string, ctx: RunContext): void {
+export function dryRun(target: Target, version: string, tag: string, ctx: RunContext): void {
   if (target.registry === 'npm') {
     const scratch = mkdtempSync(join(tmpdir(), 'h4-pack-'));
     try {
-      const tarball = pack(target, ctx, scratch);
+      const tarball = pack(target, ctx, scratch, version);
       run('npm', ['publish', tarball, '--dry-run', '--access', 'public', '--tag', tag], { cwd: scratch, env: ctx.env, inherit: true });
     } finally {
       rmSync(scratch, { recursive: true, force: true });
@@ -119,11 +135,11 @@ export function dryRun(target: Target, tag: string, ctx: RunContext): void {
 }
 
 /** Publishes a target with its registry's standard tool and OIDC trusted publishing. */
-export function publish(target: Target, tag: string, ctx: RunContext): void {
+export function publish(target: Target, version: string, tag: string, ctx: RunContext): void {
   if (target.registry === 'npm') {
     const scratch = mkdtempSync(join(tmpdir(), 'h4-pack-'));
     try {
-      const tarball = pack(target, ctx, scratch);
+      const tarball = pack(target, ctx, scratch, version);
       run('npm', ['publish', tarball, '--access', 'public', '--tag', tag], { cwd: scratch, env: ctx.env, inherit: true });
     } finally {
       rmSync(scratch, { recursive: true, force: true });
