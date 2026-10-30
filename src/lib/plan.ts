@@ -42,6 +42,8 @@ export interface Plan {
   targets: PlannedTarget[];
   /** The release commit, once it exists. */
   commit?: string;
+  /** The draft Release, once created (listing Releases right after creating one may miss it). */
+  releaseId?: number;
 }
 
 export const PLAN_FILE = 'plan.json';

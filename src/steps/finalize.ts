@@ -39,10 +39,17 @@ export async function finalize(deps: FinalizeDeps): Promise<string> {
   const { env, log, setOutput } = deps.runtime;
   const plan = loadJson<Plan>(env, PLAN_FILE);
 
-  const existing =
-    (await deps.gh.releaseByTag(plan.tag)) ??
-    (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease }));
-  const release = existing.draft ? await deps.gh.publishRelease(existing.id, { body: plan.notes, latest: plan.latest }) : existing;
+  // The id saved by commit: a listing right after the creation of the draft may not show it yet.
+  const existing = plan.releaseId === undefined ? await deps.gh.releaseByTag(plan.tag) : undefined;
+  const release =
+    existing && !existing.draft
+      ? existing
+      : await deps.gh.publishRelease(
+          plan.releaseId ??
+            existing?.id ??
+            (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease })).id,
+          { body: plan.notes, latest: plan.latest },
+        );
 
   for (const target of plan.targets) log(`${target.name}@${plan.version}: ${packageUrl(target, plan.version)}`);
   log(`::notice::${plan.tag} is released: ${release.url}`);
