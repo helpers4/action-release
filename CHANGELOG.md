@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-30
+
+### Bug fixes
+
+- **publish**: 🐛 check the version the registry tool will publish
+- **version**: 💬 say how to release when there is no commit since the last one
+- **changelog**: 🐛 give a release with no change notes instead of an empty body
+
 ## [0.4.1] - 2026-10-30
 
 ### Bug fixes
