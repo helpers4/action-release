@@ -62,7 +62,7 @@ export function nextVersion(input: NextVersionInput): NextVersion {
 
   const forced = input.bump === 'patch' || input.bump === 'minor' || input.bump === 'major';
   if (!forced && previous && input.commitsSinceLast.length === 0) {
-    throw new ReleaseError(`Nothing to release: no commit since v${previous}.`);
+    throw new ReleaseError(`Nothing to release: no commit since v${previous}. To release anyway, choose bump: patch, minor or major.`);
   }
 
   const target = forced

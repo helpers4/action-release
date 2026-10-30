@@ -17,7 +17,8 @@ Run the workflow from a branch (the one the release commit goes to), not from a 
 
 ### "Nothing to release: no commit since vX.Y.Z"
 
-No commit since the last release. To release anyway, choose `patch`, `minor` or `major`.
+No commit since the last release. To release anyway (a rebuild, a dependency), choose `patch`,
+`minor` or `major`.
 
 ### "vX.Y.Z already exists"
 
