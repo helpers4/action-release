@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadJson } from '../src/lib/actions.ts';
 import { GitHubError } from '../src/lib/github.ts';
 import { PLAN_FILE, type Plan } from '../src/lib/plan.ts';
-import { commit } from '../src/steps/commit.ts';
+import { checkoutCommit, commit } from '../src/steps/commit.ts';
 import { finalize, summary } from '../src/steps/finalize.ts';
 import { prepare } from '../src/steps/prepare.ts';
 import { publish } from '../src/steps/publish.ts';
@@ -29,7 +29,7 @@ function library(): TempRepo {
   });
   repo.tag('v0.2.4');
   repo.commit('feat(api): ✨ add decode', {
-    'src/decode.ts': '/** @since 0.2.0 */\nexport const decode = 1;\n',
+    'src/decode.ts': '/** @since next */\nexport const decode = 1;\n',
     'CHANGELOG.md': '# Changelog\n\n## [Unreleased]\n\nDecoding is now streamed.\n\n## [0.2.4] - 2026-07-19\n\n- older\n',
   });
   return repo;
@@ -125,6 +125,23 @@ describe('commit, publish, finalize', () => {
     expect(gh.tags.get('v0.2.5')).toBe(plan.commit);
     expect(gh.releases[0]).toMatchObject({ tag: 'v0.2.5', draft: true });
     expect(checkouts).toEqual([plan.commit]);
+  });
+
+  it('checks out the release commit over the files prepare wrote, new ones included', () => {
+    library();
+    const clone = new TempRepo();
+    clone.git('remote', 'add', 'origin', repo.dir);
+    clone.git('fetch', '-q', 'origin');
+    clone.git('checkout', '-q', '--detach', 'origin/main');
+    const sha = repo.commit('chore(release): 🔖 v0.2.5', { 'CHANGELOG.md': 'released\n', 'NEW.md': 'new\n' });
+    clone.write('CHANGELOG.md', 'prepared\n').write('NEW.md', 'prepared\n');
+
+    checkoutCommit({})(clone.dir, sha);
+
+    expect(clone.git('rev-parse', 'HEAD')).toBe(sha);
+    expect(clone.read('NEW.md')).toBe('new\n');
+    expect(clone.git('status', '--porcelain')).toBe('');
+    clone.dispose();
   });
 
   it('moves the floating major tag of an action to a stable release', async () => {
