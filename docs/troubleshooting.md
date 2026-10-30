@@ -58,6 +58,12 @@ The registry refused the publication. Usually the trusted publisher: it must nam
 the workflow file (`release.yml`) and the environment of the job, exactly. For npm and crates.io,
 the package must exist already (publish the first version by hand).
 
+### "… has version X, not Y: the commit of vY cannot publish Y"
+
+The release commit of vY did not write the version in that manifest (the target was added after
+it was tagged, for instance). Publishing it would publish version X. Nothing was published: release
+the next version, which writes the version in every manifest.
+
 ### "No crates.io token"
 
 `rust-lang/crates-io-auth-action` could not exchange the OIDC token: check the trusted publisher of
