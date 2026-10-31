@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-31
+
+### Features
+
+- **action**: ✨ report what a dry run found
+
 ## [0.4.3] - 2026-10-30
 
 ### Features
