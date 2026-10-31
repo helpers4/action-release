@@ -13,6 +13,7 @@ import { checkoutCommit, commit } from '../src/steps/commit.ts';
 import { finalize, summary } from '../src/steps/finalize.ts';
 import { prepare } from '../src/steps/prepare.ts';
 import { publish } from '../src/steps/publish.ts';
+import { dryRunReport } from '../src/steps/report.ts';
 import { preflight, verify, wrongVersions } from '../src/steps/verify.ts';
 import { FakeGh, fakeRegistry, fakeRuntime } from './helpers/fake.ts';
 import { cargoWorkspace, TempRepo } from './helpers/repo.ts';
@@ -106,6 +107,37 @@ describe('prepare', () => {
     await gh.publishRelease(gh.releases[0]!.id, { body: '', latest: true });
     const resume = await prepare({ runtime: fakeRuntime(repo.dir, { INPUT_BUMP: 'resume' }), gh: () => gh, fetchImpl: fakeRegistry(['mozlz4@0.2.5']), today });
     expect(resume.state).toBe('done');
+  });
+});
+
+describe('dry run report', () => {
+  it('tells the version, what was checked, what would be written and the notes', async () => {
+    library();
+    const plan = await prepare({ runtime: fakeRuntime(repo.dir), gh: () => new FakeGh('main', 'x'), today });
+    const report = dryRunReport({ ...plan, floatingTag: 'v0' }, 'auto');
+    expect(report).toContain('## 🧪 Dry run: v0.2.5 would be released');
+    expect(report).toContain('| Version | `0.2.5` (after `v0.2.4`, bump: auto) |');
+    expect(report).toContain('| GitHub Release | latest |');
+    expect(report).toContain('| npm dist-tag | `latest` |');
+    expect(report).toContain('| Tag moved | `v0` to `v0.2.5` |');
+    expect(report).toContain('| npm | `mozlz4@0.2.5` | build and `npm publish --dry-run` passed |');
+    expect(report).toContain('- `CHANGELOG.md`\n- `package.json`\n- `src/decode.ts`');
+    expect(report).toContain('### Release notes\n\nDecoding is now streamed.');
+    expect(report.trimEnd().endsWith('Nothing was written.')).toBe(true);
+  });
+
+  it('groups the crates, lists what is skipped, and says when a release is only resumed', async () => {
+    library();
+    const plan = await prepare({ runtime: fakeRuntime(repo.dir), gh: () => new FakeGh('main', 'x'), today });
+    const crate = (name: string, published: boolean) => ({ registry: 'crates' as const, path: name, manifest: `${name}/Cargo.toml`, name, published });
+    const report = dryRunReport(
+      { ...plan, state: 'resume', targets: [crate('core', true), crate('bake', false), crate('cli', false)] },
+      'resume',
+    );
+    expect(report).toContain('is already tagged, a release would publish what is missing');
+    expect(report).toContain('| crates | `bake@0.2.5`, `cli@0.2.5` | build and `cargo publish --dry-run` passed (together, in dependency order) |');
+    expect(report).toContain('| crates | `core@0.2.5` | already published, skipped |');
+    expect(report).not.toContain('Files the release commit would write');
   });
 });
 

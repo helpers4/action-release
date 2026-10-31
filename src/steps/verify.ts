@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { compare } from 'helpers4/version';
@@ -13,6 +13,7 @@ import { run } from '../lib/exec.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
 import { build, crateProblems, dryRun, dryRunCrates, oversizedCrates, versionToPublish, type CrateTarget } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
+import { dryRunReport } from './report.ts';
 
 /** npm publishes with OIDC trusted publishing from this version on. */
 export const NPM_MIN_VERSION = '11.5.1';
@@ -125,7 +126,10 @@ export function verify(deps: VerifyDeps): void {
       if (oversized.length > 0) throw new ReleaseError(`crates.io would refuse:\n- ${oversized.join('\n- ')}\nNothing was written.`);
     }
   }
-  if (isTrue(env.INPUT_DRY_RUN) && plan.state === 'new') {
-    log(`Dry run: ${plan.tag} would be released from ${plan.base}. Nothing was written.`);
+  if (isTrue(env.INPUT_DRY_RUN)) {
+    const report = dryRunReport(plan, env.INPUT_BUMP || 'auto');
+    log(report);
+    log(`::notice::Dry run: ${plan.tag} ${plan.state === 'new' ? 'would be released' : 'is already tagged'}; everything passed, nothing was written.`);
+    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, report);
   }
 }

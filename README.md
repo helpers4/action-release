@@ -15,6 +15,10 @@ your checks ──► prepare ──► verify ──► commit ──► publis
 Nothing is written before every build and every registry dry-run has passed. Running the release
 again finishes what is missing.
 
+With `dry-run: true` the release does everything but write: the job summary (and the log) tells the
+version and why, what each registry's dry-run checked, the files the release commit would write and
+the Release notes.
+
 ## Quick start
 
 ```yaml
