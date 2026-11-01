@@ -51,7 +51,7 @@ npm publishes with OIDC from 11.5.1. Node 24 ships a recent enough npm: `actions
 
 ### "No GitHub App to push the release commit"
 
-Set the `app-id` and `app-key` inputs (see *One-time setup* in the README).
+Set the `app-id` and `app-key` inputs: an App of your own, see *Your own GitHub App* in the README.
 
 ### "crates.io would refuse: …"
 

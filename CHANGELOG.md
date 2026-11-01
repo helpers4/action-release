@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+The README explains how to create your own GitHub App: `helpers4-bot` only works for the helpers4 and baxyz repositories.
+
 ## [0.6.0] - 2026-11-01
 
 ### Features

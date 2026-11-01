@@ -63,10 +63,9 @@ jobs:
 
 ### One-time setup
 
-1. **A GitHub App** that may push to the protected branch: install
-   [helpers4-bot](https://github.com/apps/helpers4-bot) (or your own App with *Contents: read and
-   write*), add it as a bypass actor of the ruleset of `main`, and store its client ID and private
-   key as `HELPERS4_BOT_ID` (variable) and `HELPERS4_BOT_KEY` (secret).
+1. **A GitHub App** that may push to the protected branch (see *Your own GitHub App* below). The
+   `helpers4-bot` App of the helpers4 and baxyz repositories cannot be used elsewhere: minting its
+   token takes its private key, which is a secret of those organizations.
 2. **Trusted publishers**, one per registry, all pointing at this repository, the workflow file
    `release.yml` and the `release` environment:
    - npm: package settings → *Trusted publisher* (the package must already exist);
@@ -76,6 +75,24 @@ jobs:
    (Settings → Branches) works next to the rulesets and is not lifted by their bypass list; GitHub's
    branch API reports `protected: true` for both. Delete the classic one or let the App bypass it too.
 4. Optional: enable *immutable releases* (Settings → General → Releases).
+
+### Your own GitHub App
+
+The release commit goes to a protected branch, which only an actor with a bypass can do. The job
+gets the token of a GitHub App that is on the bypass list (at the last moment, limited to the repository):
+
+1. **Create the App**: Settings → Developer settings → GitHub Apps → *New GitHub App* (on your account or
+   your organization). Any name and homepage, *Webhook* unticked, *Repository permissions → Contents:
+   Read and write*, and *Only on this account*.
+2. **Generate a private key** (App page → *Private keys*; a `.pem` file downloads) and note the *Client ID*.
+3. **Install the App** on the account or organization, for the repositories that release.
+4. **Allow it through the branch**: Settings → Rules → Rulesets → the ruleset of the branch → *Bypass list* →
+   add the App, *Always*. A classic branch protection (Settings → Branches) is not lifted by it: delete it or
+   let the App bypass it too.
+5. **Store the two values** as a variable and a secret of the repository or of the organization, and give
+   them to the `app-id` and `app-key` inputs: the client ID, and the whole content of the `.pem` file.
+
+The App only needs *Contents: write*, and only the release step gets its token.
 
 ## What a release does
 
