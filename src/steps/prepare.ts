@@ -63,7 +63,7 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
   }
 
   const merged = versionsOfTags(tagsMergedInHead(cwd));
-  const primary = config.targets[0]?.manifest ?? config.versionFiles[0];
+  const primary = config.targets.find((t) => !t.generated)?.manifest ?? config.versionFiles[0];
   const lastStable = merged.find((v) => parse(v).prerelease.length === 0);
   const { version, previous } = nextVersion({
     bump,
@@ -78,7 +78,7 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
 
   log(`Releasing ${tag}${previous ? ` (after v${previous})` : ''}.`);
   const files = new Set<string>();
-  const manifests = [...new Set([...config.targets.map((t) => t.manifest), ...config.versionFiles])];
+  const manifests = [...new Set([...config.targets.filter((t) => !t.generated).map((t) => t.manifest), ...config.versionFiles])];
   for (const manifest of manifests) for (const path of writeVersion(cwd, manifest, version)) files.add(path);
   const crateNames = new Set(config.targets.filter((t) => t.registry === 'crates').map((t) => packageName(cwd, t)));
   if (crateNames.size > 0) {
@@ -117,7 +117,7 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
     prerelease,
     latest: !prerelease && !stable.some((v) => compare(v, version) > 0),
     distTag: distTag(version, stable),
-    targets: config.targets.map((t) => ({ ...t, name: packageName(cwd, t), published: false })),
+    targets: config.targets.map((t) => ({ ...t, name: t.generated ? t.path : packageName(cwd, t), published: false })),
     ...(config.floatingMajor && !prerelease && !stable.some((v) => compare(v, version) > 0) ? { floatingTag: `v${parse(version).major}` } : {}),
   });
 }
@@ -132,6 +132,11 @@ async function resumePlan(deps: PrepareDeps, cwd: string, config: Config, branch
 
   const targets: PlannedTarget[] = [];
   for (const target of after.targets) {
+    // Generated packages exist once the build ran: verify lists them, and publish skips the served ones.
+    if (target.generated) {
+      targets.push({ ...target, name: target.path, published: false });
+      continue;
+    }
     const name = packageName(cwd, target);
     targets.push({ ...target, name, published: await isPublished(target.registry, name, version, deps.fetchImpl) });
   }

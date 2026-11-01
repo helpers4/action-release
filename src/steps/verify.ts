@@ -8,10 +8,11 @@ import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { compare } from 'helpers4/version';
-import { isTrue, loadJson, workspace, type Runtime } from '../lib/actions.ts';
+import { isTrue, loadJson, saveJson, workspace, type Runtime } from '../lib/actions.ts';
 import { run } from '../lib/exec.ts';
+import { expandGenerated } from '../lib/generated.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
-import { build, crateProblems, dryRun, dryRunCrates, oversizedCrates, versionToPublish, type CrateTarget } from '../lib/registries.ts';
+import { build, crateProblems, dryRun, dryRunCrates, isPublished, oversizedCrates, packageName, versionToPublish, wasUnpublished, type CrateTarget, type Fetch } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
 import { dryRunReport } from './report.ts';
 
@@ -22,6 +23,39 @@ export interface VerifyDeps {
   runtime: Runtime;
   /** Version of the npm on the PATH. */
   npmVersion?: () => string;
+  fetchImpl?: Fetch;
+}
+
+/**
+ * Builds the `dir/*` targets and replaces each by the packages the build generated, in the plan
+ * that the next steps read. With a release already tagged, the ones the registry serves are marked.
+ */
+export async function expandGeneratedTargets(plan: Plan, deps: VerifyDeps, cwd: string): Promise<Plan> {
+  const { env, log } = deps.runtime;
+  const targets: PlannedTarget[] = [];
+  for (const target of plan.targets) {
+    if (!target.generated) {
+      targets.push(target);
+      continue;
+    }
+    log(`::group::Build of ${target.path}`);
+    try {
+      build(target, { cwd, env, log });
+    } catch {
+      throw new ReleaseError(`The build of ${target.path} failed (see the log above). Nothing was written.`);
+    } finally {
+      log('::endgroup::');
+    }
+    const packages = expandGenerated(cwd, target);
+    for (const t of packages) {
+      const name = packageName(cwd, t);
+      targets.push({ ...t, name, published: plan.state !== 'new' && (await isPublished(t.registry, name, plan.version, deps.fetchImpl)) });
+    }
+    log(`${target.path}: ${packages.length} packages, to publish in this order: ${packages.map((t) => t.path).join(', ')}.`);
+  }
+  const expanded = { ...plan, targets };
+  saveJson(env, PLAN_FILE, expanded);
+  return expanded;
 }
 
 /** Problems that would only show up after the release commit: found now, while nothing is written. */
@@ -57,10 +91,10 @@ export function wrongVersions(cwd: string, plan: Plan): string[] {
 }
 
 /** Builds every target still to publish, and runs its registry's dry-run on the result. */
-export function verify(deps: VerifyDeps): void {
+export async function verify(deps: VerifyDeps): Promise<void> {
   const { env, log, warn } = deps.runtime;
   const cwd = workspace(env);
-  const plan = loadJson<Plan>(env, PLAN_FILE);
+  const loaded = loadJson<Plan>(env, PLAN_FILE);
   const npmVersion =
     deps.npmVersion ??
     (() => {
@@ -72,12 +106,13 @@ export function verify(deps: VerifyDeps): void {
       }
     });
 
-  const problems = preflight(plan, env, npmVersion);
+  const problems = preflight(loaded, env, npmVersion);
   if (problems.length > 0) {
     if (!isTrue(env.INPUT_DRY_RUN)) throw new ReleaseError(`The release cannot run:\n- ${problems.join('\n- ')}`);
     for (const problem of problems) warn(`${problem} (the release would stop here)`);
   }
 
+  const plan = await expandGeneratedTargets(loaded, deps, cwd);
   const wrong = wrongVersions(cwd, plan);
   if (wrong.length > 0) {
     throw new ReleaseError(
@@ -86,6 +121,15 @@ export function verify(deps: VerifyDeps): void {
   }
 
   const pending = plan.targets.filter((t) => !t.published);
+  const lost: string[] = [];
+  for (const t of pending.filter((p) => p.registry === 'npm')) {
+    if (await wasUnpublished(t.name, plan.version, deps.fetchImpl)) lost.push(t.name);
+  }
+  if (lost.length > 0) {
+    throw new ReleaseError(
+      `npm refuses ${plan.version} of ${lost.join(', ')}: that version was published and then unpublished, and can never be published again. Release the next version (bump: patch). Nothing was written.`,
+    );
+  }
   const crates = pending.filter((t): t is PlannedTarget & CrateTarget => t.registry === 'crates');
   if (crates.length > 0) {
     const { problems: missing, warnings } = crateProblems(crates, cwd);

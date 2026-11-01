@@ -30,7 +30,7 @@ const gh = (token: string | undefined) =>
 
 try {
   if (step === 'prepare') await prepare({ runtime, gh: () => gh(env.GITHUB_TOKEN) });
-  else if (step === 'verify') verify({ runtime });
+  else if (step === 'verify') await verify({ runtime });
   else if (step === 'commit') await commit({ runtime, appGh: gh(env.APP_TOKEN), gh: gh(env.GITHUB_TOKEN) });
   else if (step === 'publish') await publish({ runtime });
   else await finalize({ runtime, gh: gh(env.GITHUB_TOKEN) });

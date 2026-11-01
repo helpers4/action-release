@@ -141,6 +141,20 @@ dependencies and checks each one, so the later ones need no earlier version on c
 the version in `[workspace.package]` and in the `version` of the `{ path = "…", version = "…" }` dependencies
 between them (one-line tables). A `build` on a workspace runs once.
 
+**Packages the build generates.** `npm: build/*` stands for every `build/<package>/package.json` that
+the `build` command writes (a multi-package library with one version). They are not known before the
+build: `verify` runs it once, lists the packages (the private ones are skipped), then dry-runs and publishes
+them. A package that depends on another one of the release goes after it (a bundle after its categories).
+The release does not write their version: the build takes it from the root `package.json`, which you list
+in `version-files`, and the release refuses to publish a package that carries another one.
+
+```yaml
+          version-files: package.json
+          targets: |
+            - npm: build/*
+              build: pnpm build && pnpm coherency
+```
+
 Without `build`, an npm package runs its `build` script with your package manager; crates and JSR
 packages are built by their own dry-run.
 
@@ -160,6 +174,7 @@ Every message is explained in [docs/troubleshooting.md](docs/troubleshooting.md)
   the hand-written `[Unreleased]` notes become the summary of each release.
 - **folioscope** (pnpm monorepo, Rust → WebAssembly → npm): the release job sets up Rust and
   `wasm-bindgen`, then `targets` with `npm: packages/folioscope` and its build.
+- **helpers4/typescript** (30 npm packages built from one source, one version): `npm: build/*` above.
 - **helpers4/rust** (crate): no target to configure; `since-json: api-since.json`.
 
 ## Requirements and limits
@@ -167,6 +182,8 @@ Every message is explained in [docs/troubleshooting.md](docs/troubleshooting.md)
 - Node 22.18 or later on the runner (the action runs its TypeScript with Node itself).
 - GitHub-hosted runners: trusted publishing does not support self-hosted ones.
 - One version for the whole repository.
+- Only `dir/*` patterns (npm); the packages must exist after the build.
+- npm refuses for good a version that was published and then unpublished: the release stops before writing.
 - npm and crates.io accept a trusted publisher only for an existing package: publish the first
   version by hand.
 

@@ -49,6 +49,16 @@ refuses at upload), or its archive is over 10 MB. Fix it in the crate's `Cargo.t
 The registry's own tool reports the problem in the log above the message (a missing license for
 JSR, a file missing from the package, a wrong name…). Nothing was written.
 
+### "The build generated no package in …/"
+
+A `npm: dir/*` target expects `dir/<package>/package.json` after its `build` command. Check that the
+command writes there (and that the packages are not all `private`). Nothing was written.
+
+### "npm refuses … that version was published and then unpublished"
+
+npm never accepts again a version it published once, even unpublished. Release the next version
+(`bump: patch`). Nothing was written.
+
 ### "… moved during the release"
 
 Someone pushed to the branch between the start of the release and its commit. The release only

@@ -25,6 +25,9 @@ export async function publish(deps: PublishDeps): Promise<Plan> {
   const doPublishCrates = deps.publishCrates ?? ((targets, p, dir) => registryPublishCrates(targets, { cwd: dir, env, log }));
   const doPublish = deps.publish ?? ((target, p, dir) => registryPublish(target, p.version, p.distTag, { cwd: dir, env, log }));
 
+  const unbuilt = plan.targets.find((t) => t.generated);
+  if (unbuilt) throw new ReleaseError(`${unbuilt.path} was not expanded by verify: the packages the build generates are not known.`);
+
   const failures: string[] = [];
   const results = new Map<PlannedTarget, PlannedTarget>();
   const pending: PlannedTarget[] = [];

@@ -43,6 +43,18 @@ export async function isPublished(registry: Registry, name: string, version: str
 }
 
 /**
+ * Whether npm published `name@version` once and then lost it (unpublished): npm refuses that exact
+ * version for good, so a release of it would fail after the other packages went out.
+ */
+export async function wasUnpublished(name: string, version: string, fetchImpl: Fetch = fetch): Promise<boolean> {
+  const response = await fetchImpl(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new ReleaseError(`npm answered ${response.status} for ${name}: cannot tell whether ${version} was unpublished.`);
+  const body = (await response.json()) as { versions?: Record<string, unknown>; time?: Record<string, unknown> };
+  return Boolean(body.time && version in body.time && !(body.versions && version in body.versions));
+}
+
+/**
  * npm dist-tag: `latest` for a stable version not lower than every released stable one, the
  * prerelease identifier for a prerelease (`beta`), and `release-X.Y` for an older line.
  */

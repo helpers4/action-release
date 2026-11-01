@@ -22,6 +22,11 @@ export interface Target {
   manifest: string;
   /** Command run before the dry-run and the publication (the project's build). */
   build?: string;
+  /**
+   * `path` is a `dir/*` pattern of packages the build generates: they are known once it ran, and
+   * `verify` replaces this target by one per package.
+   */
+  generated?: boolean;
 }
 
 export interface Config {
@@ -109,6 +114,12 @@ export function loadConfig(cwd: string, env: NodeJS.ProcessEnv): Config {
     }
     const registry = registries[0]!;
     const dir = clean(entry[registry]!);
+    if (dir.includes('*')) {
+      if (registry !== 'npm' || !/^[^*]+\/\*$/.test(dir)) {
+        throw new ReleaseError(`targets[${i}]: only an npm target can be a "dir/*" pattern, such as "npm: build/*" (got ${registry}: ${dir}).`);
+      }
+      return [{ registry, path: dir, manifest: posix.join(dir, 'package.json'), generated: true, ...(entry.build ? { build: entry.build } : {}) }];
+    }
     const manifest = manifestOf(cwd, registry, dir);
     if (registry === 'crates' && isVirtualWorkspace(readFileSync(join(cwd, manifest), 'utf8'))) {
       return workspaceCrates(cwd, manifest, entry.build);
