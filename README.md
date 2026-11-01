@@ -72,7 +72,10 @@ jobs:
    - npm: package settings → *Trusted publisher* (the package must already exist);
    - crates.io: crate settings → *Trusted Publishing* (the crate must already exist);
    - JSR: package settings → link the GitHub repository.
-3. Optional: enable *immutable releases* (Settings → General → Releases).
+3. **Only one protection on the branch, or the App allowed in each.** A classic branch protection
+   (Settings → Branches) works next to the rulesets and is not lifted by their bypass list; GitHub's
+   branch API reports `protected: true` for both. Delete the classic one or let the App bypass it too.
+4. Optional: enable *immutable releases* (Settings → General → Releases).
 
 ## What a release does
 
@@ -140,6 +143,11 @@ publishes one. The crates of a workspace go to a single `cargo publish`, which o
 dependencies and checks each one, so the later ones need no earlier version on crates.io. The release writes
 the version in `[workspace.package]` and in the `version` of the `{ path = "…", version = "…" }` dependencies
 between them (one-line tables). A `build` on a workspace runs once.
+
+**Order of the first release of a project** (npm, crates.io and JSR together): the trusted publishers can only be set on a package
+that exists, so a package or crate new to its registry needs a first version published by hand (or, for JSR, the package created in
+its scope) before it can be linked to this repository and workflow. Do that for every target, then run the release: `verify`
+stops before writing anything on an npm package it does not find. Each registry must name the same workflow file and environment.
 
 **Packages the build generates.** `npm: build/*` stands for every `build/<package>/package.json` that
 the `build` command writes (a multi-package library with one version). They are not known before the

@@ -434,7 +434,7 @@ describe('moving the branch', () => {
     await expect(gh(422, '{"message":"Update is not a fast forward"}').fastForward('main', 'abc')).resolves.toBe(false);
     await expect(gh(200, '{}').fastForward('main', 'abc')).resolves.toBe(true);
     await expect(gh(422, '{"message":"Repository rule violations found\\n\\nChanges must be made through a pull request."}').fastForward('main', 'abc')).rejects.toThrow(
-      /refused to move main.*Changes must be made through a pull request.*Nothing was released.*bypass/s,
+      /refused to move main.*Changes must be made through a pull request.*Nothing was released.*bypass.*classic branch protection/s,
     );
   });
 });

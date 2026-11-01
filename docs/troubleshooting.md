@@ -25,6 +25,21 @@ No commit since the last release. To release anyway (a rebuild, a dependency), c
 The computed version is taken by a tag that is not in the history of this branch. If it is the
 release you are finishing, run with `bump: resume`; otherwise choose another `bump`.
 
+### "GitHub refused to move main to the release commit"
+
+GitHub's own message follows. "Changes must be made through a pull request" or "protected branch"
+means the App is not allowed through a rule of the branch. Check both places:
+
+- the **rulesets** that apply to the branch (Settings → Rules; also those of the organization):
+  `helpers4-bot` (or your App) must be a bypass actor with *Always*;
+- a **classic branch protection** (Settings → Branches). It lives next to the rulesets, a ruleset's
+  bypass does not lift it, and a ruleset page does not show it. Delete it or let the App bypass it there too.
+
+`gh api repos/OWNER/REPO/rules/branches/main` lists the rules of the rulesets; `protected: true` in
+`gh api repos/OWNER/REPO/branches/main` is also set by a classic protection. The action cannot read
+a classic protection itself (that needs the *administration* permission, which a job token cannot have),
+so this is only found when the push is refused. Nothing was released at that point.
+
 ### "The job cannot request an OIDC token"
 
 Trusted publishing (npm, crates.io, JSR) needs `permissions: { id-token: write }` on the release job.

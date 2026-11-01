@@ -113,7 +113,7 @@ export function createGh({ token, repository, apiUrl = 'https://api.github.com',
         if (error instanceof GitHubError && error.status === 422 && /fast.?forward/i.test(error.message)) return false;
         if (error instanceof GitHubError && (error.status === 422 || error.status === 403)) {
           throw new ReleaseError(
-            `GitHub refused to move ${branch} to the release commit: ${error.message.replace(/^GitHub PATCH \S+: /, '')}\nNothing was released. If a rule of the branch is named, the GitHub App of the release must be allowed to bypass it (see "One-time setup" in the README).`,
+            `GitHub refused to move ${branch} to the release commit: ${error.message.replace(/^GitHub PATCH \S+: /, '')}\nNothing was released. If a rule of the branch is named, the GitHub App of the release must be allowed to bypass it (see "One-time setup" in the README). A ruleset that lets the App through does not lift a classic branch protection (Settings → Branches), which rulesets hide: check that one too.`,
           );
         }
         throw error;
