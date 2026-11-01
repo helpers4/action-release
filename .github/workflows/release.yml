@@ -38,7 +38,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
-      - uses: ./
+      - id: release
+        uses: ./
         with:
           bump: ${{ inputs.bump }}
           dry-run: ${{ inputs.dry-run }}
@@ -48,3 +49,16 @@ jobs:
           floating-major: true
           # The sources and tests use `@since next` as an example: never replace it.
           since-files: ""
+      # The website documents this action (helpers4.dev/action/actions/action-release/) from the
+      # README and docs/ of the released tag: tell it which repository and tag to read.
+      - name: Trigger website update
+        if: inputs.dry-run != true && steps.release.outputs.tag != ''
+        continue-on-error: true
+        uses: helpers4/action/dispatch-with-fallback@8ab0d9c2d162ad5c51c7f5c63d9a44f4e201e432 # main
+        with:
+          target-owner: helpers4
+          target-repo: website
+          event-type: action-release
+          payload: '{"repo": "action-release", "version": "${{ steps.release.outputs.tag }}"}'
+          app-id: ${{ vars.TRIGGANATOR_ID }}
+          app-private-key: ${{ secrets.TRIGGANATOR_KEY }}

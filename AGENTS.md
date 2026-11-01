@@ -33,7 +33,10 @@ Running it again resumes: what is already done is skipped.
 - `docs/troubleshooting.md` — one section per message; keep it in step with the errors
 - `test/` — vitest; real temporary git repositories, `FakeGh` and a fake registry
 - `.github/workflows/release.yml` — this action releases itself with `uses: ./` (no registry,
-  `floating-major: true` moves `v0`, `since-files: ""` keeps the `@since next` examples)
+  `floating-major: true` moves `v0`, `since-files: ""` keeps the `@since next` examples), then
+  dispatches `action-release` with `{"repo": "action-release", "version": "<tag>"}` to
+  helpers4/website, which regenerates this action's page from `README.md` and
+  `docs/troubleshooting.md` of that tag: keep both readable as website pages
 - No configuration file: everything is an input of the action (`action.yml` → `INPUT_*` →
   `src/lib/config.ts`)
 
