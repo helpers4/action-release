@@ -88,7 +88,7 @@ jobs:
      top of the new `## [X.Y.Z] - date` section, followed by the list generated from the commits by
      [git-cliff](https://git-cliff.org) (your `cliff.toml` if any). An empty `[Unreleased]` stays on
      top for the next release. The Release notes are the same text.
-   - **`@since next`** becomes `@since X.Y.Z` in the tracked sources, and `"next"` values of the
+   - **`@since next`** becomes `@since X.Y.Z` in the tracked sources (a prerelease keeps it: `next` is the next stable release), and `"next"` values of the
      JSON maps listed in `since.json` (such as `api-since.json`) become the version.
 2. **verify**: your build, then `npm publish --dry-run` (on the tarball packed by your package
    manager), `cargo publish --dry-run`, `jsr publish --dry-run`. Also checked: the OIDC permission,

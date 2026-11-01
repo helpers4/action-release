@@ -90,7 +90,10 @@ export async function prepare(deps: PrepareDeps): Promise<Plan> {
   for (const cargo of manifests.filter((m) => basename(m) === 'Cargo.toml').slice(0, 1)) {
     for (const path of updateCargoLock(cwd, cargo)) if (trackedFiles(cwd).includes(path)) files.add(path);
   }
-  for (const path of replaceSince(cwd, trackedFiles(cwd), config.since, version)) files.add(path);
+  // A prerelease keeps the marker: `next` still means "the next stable release".
+  if (parse(version).prerelease.length === 0) {
+    for (const path of replaceSince(cwd, trackedFiles(cwd), config.since, version)) files.add(path);
+  }
 
   const changelogFile = join(cwd, config.changelog);
   const update = updateChangelog(existsSync(changelogFile) ? readFileSync(changelogFile, 'utf8') : undefined, {

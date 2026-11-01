@@ -78,6 +78,9 @@ describe('prepare', () => {
     library();
     const plan = await prepare({ runtime: fakeRuntime(repo.dir, { INPUT_BUMP: 'beta' }), gh: () => new FakeGh('main', 'x'), today });
     expect(plan).toMatchObject({ version: '0.2.5-beta.0', distTag: 'beta', latest: false, prerelease: true });
+    // `@since next` stays: it means the next stable release.
+    expect(repo.read('src/decode.ts')).toContain('@since next');
+    expect(plan.files).toEqual(['CHANGELOG.md', 'package.json']);
   });
 
   it('stops when there is nothing to release, or on a shallow or tag checkout', async () => {
