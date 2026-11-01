@@ -7,7 +7,7 @@
 import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadJson } from '../src/lib/actions.ts';
-import { GitHubError } from '../src/lib/github.ts';
+import { createGh, GitHubError } from '../src/lib/github.ts';
 import { PLAN_FILE, type Plan } from '../src/lib/plan.ts';
 import { checkoutCommit, commit } from '../src/steps/commit.ts';
 import { finalize, summary } from '../src/steps/finalize.ts';
@@ -423,5 +423,18 @@ describe('a workspace of crates', () => {
     const again = await publish({ runtime, fetchImpl, publishCrates: (targets) => calls.push(targets.map((t) => t.name)) });
     expect(calls[1]).toEqual(['h4x']);
     expect(again.targets.every((t) => t.published)).toBe(true);
+  });
+});
+
+describe('moving the branch', () => {
+  const gh = (status: number, body: string) =>
+    createGh({ token: 't', repository: 'o/r', fetchImpl: (async () => new Response(body, { status })) as typeof fetch });
+
+  it('tells a branch that moved from a rule that refuses the release commit', async () => {
+    await expect(gh(422, '{"message":"Update is not a fast forward"}').fastForward('main', 'abc')).resolves.toBe(false);
+    await expect(gh(200, '{}').fastForward('main', 'abc')).resolves.toBe(true);
+    await expect(gh(422, '{"message":"Repository rule violations found\\n\\nChanges must be made through a pull request."}').fastForward('main', 'abc')).rejects.toThrow(
+      /refused to move main.*Changes must be made through a pull request.*Nothing was released.*bypass/s,
+    );
   });
 });

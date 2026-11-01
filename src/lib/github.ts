@@ -5,6 +5,7 @@
  */
 
 import type { Fetch } from './registries.ts';
+import { ReleaseError } from './version.ts';
 
 export interface FileChange {
   path: string;
@@ -107,7 +108,14 @@ export function createGh({ token, repository, apiUrl = 'https://api.github.com',
         await call('PATCH', `/git/refs/heads/${branch}`, { sha, force: false });
         return true;
       } catch (error) {
-        if (error instanceof GitHubError && error.status === 422) return false;
+        // "Update is not a fast forward": the branch moved. Any other refusal (a rule of the
+        // branch, a missing bypass) is reported as GitHub words it.
+        if (error instanceof GitHubError && error.status === 422 && /fast.?forward/i.test(error.message)) return false;
+        if (error instanceof GitHubError && (error.status === 422 || error.status === 403)) {
+          throw new ReleaseError(
+            `GitHub refused to move ${branch} to the release commit: ${error.message.replace(/^GitHub PATCH \S+: /, '')}\nNothing was released. If a rule of the branch is named, the GitHub App of the release must be allowed to bypass it (see "One-time setup" in the README).`,
+          );
+        }
         throw error;
       }
     },
