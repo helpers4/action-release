@@ -35,10 +35,35 @@ export function summary(plan: Plan, releaseUrl: string): string {
   ].join('\n');
 }
 
-/** Publishes the Release, with the human summary and the generated list as its notes. */
+/** The summary when the Release is left as a draft for the person to publish. */
+export function draftSummary(plan: Plan, releasesUrl: string): string {
+  return [
+    `## ${plan.tag} is released, its Release is a draft`,
+    '',
+    `The commit, the tag and the packages are done. [Edit the draft](${releasesUrl}) (for a GitHub Action: tick *Publish this Action to the GitHub Marketplace* and pick the categories), then publish it.`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Publishes the Release, with the human summary and the generated list as its notes. With
+ * `publish-release: false` the draft is left for the person: a Release that is immutable once published
+ * can no longer get its Marketplace categories.
+ */
 export async function finalize(deps: FinalizeDeps): Promise<string> {
   const { env, log, setOutput } = deps.runtime;
   const plan = loadJson<Plan>(env, PLAN_FILE);
+
+  if (env.INPUT_PUBLISH_RELEASE === 'false') {
+    const found = await deps.gh.releaseByTag(plan.tag);
+    const draft = found ?? (await deps.gh.createDraftRelease({ tag: plan.tag, name: plan.tag, body: plan.notes, prerelease: plan.prerelease }));
+    const releasesUrl = `${env.GITHUB_SERVER_URL ?? 'https://github.com'}/${env.GITHUB_REPOSITORY ?? ''}/releases`;
+    const url = draft.draft ? releasesUrl : draft.url;
+    log(draft.draft ? `::notice::${plan.tag} is released; its Release is left as a draft for you to publish: ${releasesUrl}` : `::notice::${plan.tag} is released: ${url}`);
+    setOutput('release-url', url);
+    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, draft.draft ? draftSummary(plan, releasesUrl) : summary(plan, url));
+    return url;
+  }
 
   // The id saved by commit: a listing right after the creation of the draft may not show it yet.
   const existing = plan.releaseId === undefined ? await deps.gh.releaseByTag(plan.tag) : undefined;

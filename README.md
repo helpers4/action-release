@@ -120,9 +120,16 @@ Everything is an input of the step: no configuration file.
 | `since-files` | every tracked `.ts`, `.js`, `.rs`… file | Globs of the files whose `@since` markers get the version; `""` for none |
 | `since-json` | – | JSON maps whose `"next"` values get the version, such as `api-since.json` |
 | `floating-major` | `false` | `true` for a GitHub Action: move `v1` to each stable release |
+| `publish-release` | `true` | `false` leaves the Release as a draft, to edit and publish by hand (see below) |
 | `github-token` | `github.token` | Token for the GitHub Release |
 
 Outputs: `version`, `tag`, `release-url`.
+
+**Publishing a GitHub Action to the Marketplace.** The box *Publish this Action to the GitHub Marketplace* and the
+categories are only in the form of the Release on github.com (not in the API, not in `action.yml`), and an immutable Release
+can no longer be edited once published. With `publish-release: false` the release does everything else and leaves the Release as a
+draft: edit it on github.com (tick the box, pick the categories), then publish it. The commit, the tag and the packages are
+already done; `bump: resume` leaves the draft alone too while the input stays `false`.
 
 Without `targets`, the root `package.json` (unless private), `Cargo.toml` (unless `publish = false`)
 and `jsr.json` / `deno.json` are released. Otherwise:

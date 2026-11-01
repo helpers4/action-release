@@ -56,6 +56,10 @@ inputs:
     description: Move the major tag (v1) to each stable release, as GitHub Actions are referenced
     required: false
     default: "false"
+  publish-release:
+    description: Publish the GitHub Release at the end; `false` leaves the draft for you to edit and publish (the Marketplace categories of an Action)
+    required: false
+    default: "true"
   github-token:
     description: Token for the GitHub Release (the job needs contents write)
     required: false
@@ -142,5 +146,6 @@ runs:
       if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true'
       shell: bash
       env:
+        INPUT_PUBLISH_RELEASE: ${{ inputs.publish-release }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: node "$GITHUB_ACTION_PATH/src/main.ts" finalize
