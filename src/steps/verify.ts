@@ -12,9 +12,11 @@ import { isTrue, loadJson, saveJson, workspace, type Runtime } from '../lib/acti
 import { run } from '../lib/exec.ts';
 import { expandGenerated } from '../lib/generated.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
-import { build, crateProblems, dryRun, dryRunCrates, isPublished, isNewPackage, oversizedCrates, packageName, versionToPublish, wasUnpublished, type CrateTarget, type Fetch } from '../lib/registries.ts';
+import { build, crateProblems, dryRun, dryRunCrates, isPublished, isNewCrate, isNewPackage, oversizedCrates, packageName, versionToPublish, wasUnpublished, type CrateTarget, type Fetch } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
 import { dryRunReport } from './report.ts';
+
+const FIRST_RELEASE_DOC = 'https://github.com/helpers4/action-release#the-first-release-of-a-project';
 
 /** npm publishes with OIDC trusted publishing from this version on. */
 export const NPM_MIN_VERSION = '11.5.1';
@@ -129,7 +131,13 @@ export async function verify(deps: VerifyDeps): Promise<void> {
   }
   if (created.length > 0) {
     throw new ReleaseError(
-      `${created.join(', ')} ${created.length > 1 ? 'are' : 'is'} not on npm yet, and trusted publishing only works for an existing package: publish a first version by hand, add this repository and workflow as its trusted publisher on npmjs.com, then run the release again. Nothing was written.`,
+      [
+        `${created.join(', ')} ${created.length > 1 ? 'are' : 'is'} not on npm yet, and trusted publishing only works for an existing package. To do, once per package:`,
+        '1. stage a first version, which is not public until approved: `npm stage publish` (from the folder of the built package);',
+        '2. on npmjs.com, in the package settings, add this repository, this workflow file and this environment as its trusted publisher;',
+        '3. run the release again.',
+        `Nothing was written (${FIRST_RELEASE_DOC}).`,
+      ].join('\n'),
     );
   }
   if (lost.length > 0) {
@@ -139,6 +147,23 @@ export async function verify(deps: VerifyDeps): Promise<void> {
   }
   const crates = pending.filter((t): t is PlannedTarget & CrateTarget => t.registry === 'crates');
   if (crates.length > 0) {
+    const fresh: string[] = [];
+    for (const t of crates) if (await isNewCrate(t.name, deps.fetchImpl)) fresh.push(t.name);
+    if (fresh.length > 0) {
+      if (!isTrue(env.INPUT_HAS_CRATES_TOKEN)) {
+        throw new ReleaseError(
+          [
+            `${fresh.join(', ')} ${fresh.length > 1 ? 'are' : 'is'} not on crates.io yet, and trusted publishing only works for an existing crate. Either, once per crate:`,
+            '1. publish a first version by hand: `cargo login` then `cargo publish` (a token with the publish-new scope);',
+            '2. on crates.io, in the crate settings, add this repository, this workflow file and this environment as its trusted publisher;',
+            '3. run the release again.',
+            'Or give the crates-token input a token with the publish-new and publish-update scopes for this one release (then remove it and add the trusted publisher).',
+            `Nothing was written (${FIRST_RELEASE_DOC}).`,
+          ].join('\n'),
+        );
+      }
+      warn(`${fresh.join(', ')} ${fresh.length > 1 ? 'are' : 'is'} not on crates.io yet: published with the crates-token. Add the trusted publisher on crates.io, then remove the input.`);
+    }
     const { problems: missing, warnings } = crateProblems(crates, cwd);
     for (const warning of warnings) warn(warning);
     if (missing.length > 0) throw new ReleaseError(`crates.io would refuse:\n- ${missing.join('\n- ')}\nNothing was written.`);

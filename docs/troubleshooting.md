@@ -40,6 +40,11 @@ means the App is not allowed through a rule of the branch. Check both places:
 a classic protection itself (that needs the *administration* permission, which a job token cannot have),
 so this is only found when the push is refused. Nothing was released at that point.
 
+### "… is not on npm yet" / "… is not on crates.io yet"
+
+The package or crate does not exist, so it cannot have a trusted publisher. The message lists the steps; see
+*The first release of a project* in the README for the commands. Nothing was written.
+
 ### "The job cannot request an OIDC token"
 
 Trusted publishing (npm, crates.io, JSR) needs `permissions: { id-token: write }` on the release job.

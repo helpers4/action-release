@@ -50,6 +50,14 @@ export async function isNewPackage(name: string, fetchImpl: Fetch = fetch): Prom
   return false;
 }
 
+/** Whether crates.io has never heard of the crate: no trusted publisher can exist for it. */
+export async function isNewCrate(name: string, fetchImpl: Fetch = fetch): Promise<boolean> {
+  const response = await fetchImpl(`https://crates.io/api/v1/crates/${name}`, { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+  if (response.status === 404) return true;
+  if (!response.ok) throw new ReleaseError(`crates.io answered ${response.status} for ${name}: cannot tell whether the crate exists.`);
+  return false;
+}
+
 /**
  * Whether npm published `name@version` once and then lost it (unpublished): npm refuses that exact
  * version for good, so a release of it would fail after the other packages went out.

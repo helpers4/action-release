@@ -25,6 +25,10 @@ inputs:
     description: Private key of that GitHub App
     required: false
     default: ""
+  crates-token:
+    description: Token of crates.io (publish-new and publish-update scopes), for the first release of a crate that does not exist yet; remove it afterwards
+    required: false
+    default: ""
   targets:
     description: >-
       What is published, in this order, as a YAML list of `npm`, `crates` or `jsr` with the package
@@ -103,6 +107,7 @@ runs:
         INPUT_BUMP: ${{ inputs.bump }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
         INPUT_HAS_APP: ${{ inputs.app-id != '' && inputs.app-key != '' }}
+        INPUT_HAS_CRATES_TOKEN: ${{ inputs.crates-token != '' }}
       run: node "$GITHUB_ACTION_PATH/src/main.ts" verify
 
     # Created only now, after the project's code has run, and limited to this repository.
@@ -126,14 +131,14 @@ runs:
 
     - name: Authenticate to crates.io
       id: crates
-      if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true' && steps.prepare.outputs.crates == 'true'
+      if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true' && steps.prepare.outputs.crates == 'true' && inputs.crates-token == ''
       uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
     - name: Publish
       if: steps.prepare.outputs.state != 'done' && inputs.dry-run != 'true'
       shell: bash
       env:
-        CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        CARGO_REGISTRY_TOKEN: ${{ inputs.crates-token != '' && inputs.crates-token || steps.crates.outputs.token }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: node "$GITHUB_ACTION_PATH/src/main.ts" publish
 

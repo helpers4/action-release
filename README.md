@@ -136,6 +136,7 @@ Everything is an input of the step: no configuration file.
 | `since-marker` | `next` | `@since next` |
 | `since-files` | every tracked `.ts`, `.js`, `.rs`… file | Globs of the files whose `@since` markers get the version; `""` for none |
 | `since-json` | – | JSON maps whose `"next"` values get the version, such as `api-since.json` |
+| `crates-token` | – | crates.io token for the first release of a new crate only, then remove it |
 | `floating-major` | `false` | `true` for a GitHub Action: move `v1` to each stable release |
 | `github-token` | `github.token` | Token for the GitHub Release |
 
@@ -161,10 +162,41 @@ dependencies and checks each one, so the later ones need no earlier version on c
 the version in `[workspace.package]` and in the `version` of the `{ path = "…", version = "…" }` dependencies
 between them (one-line tables). A `build` on a workspace runs once.
 
-**Order of the first release of a project** (npm, crates.io and JSR together): the trusted publishers can only be set on a package
-that exists, so a package or crate new to its registry needs a first version published by hand (or, for JSR, the package created in
-its scope) before it can be linked to this repository and workflow. Do that for every target, then run the release: `verify`
-stops before writing anything on an npm package it does not find. Each registry must name the same workflow file and environment.
+### The first release of a project
+
+npm and crates.io accept a trusted publisher only for a package that already exists, and the release
+publishes with nothing else. **Publish a first version by hand before the first release**, for every
+npm package and crate that is new to its registry, then add the trusted publisher. The first version
+must be lower than the one the release computes, so it never takes its place (`0.0.0` for a new
+package; the version your manifest already holds for an existing project):
+
+```bash
+# npm: staged, so not public until approved (the package exists, which is all the trusted publisher needs)
+npm login
+npm stage publish
+# or publish it: --tag init keeps this version off `latest`; a scoped package needs --access public
+# npm publish --access public --tag init
+
+# crates.io: a token with the publish-new scope (crates.io → Account Settings → API Tokens)
+cargo login
+cargo publish
+
+# JSR: create the package in its scope on jsr.io first, then
+npx jsr publish
+```
+
+Then, on each registry, add this repository, the workflow file (`release.yml`) and the environment of
+the job as the trusted publisher (package settings), and run the release. Until that is done, `verify`
+stops before writing anything on an npm package or a crate it does not find, with this list of steps.
+
+Instead of publishing a crate by hand, the `crates-token` input takes a crates.io token (scopes
+*publish-new* and *publish-update*) for the first release only: the crate is published with it, then add the
+trusted publisher and remove the input.
+
+npm has no such token: it cannot be created for a package that does not exist. Instead of publishing the
+first version publicly, **stage** it: `npm stage publish` puts it in the registry without making it public, and the
+package then exists, so its trusted publisher can be added by hand in the package settings. Approve the staged
+version (`npm stage approve`) or reject it (`npm stage reject`) when you like; the release does not need it.
 
 **Packages the build generates.** `npm: build/*` stands for every `build/<package>/package.json` that
 the `build` command writes (a multi-package library with one version). They are not known before the
@@ -210,7 +242,7 @@ Every message is explained in [docs/troubleshooting.md](docs/troubleshooting.md)
 - Only `dir/*` patterns (npm); the packages must exist after the build.
 - npm refuses for good a version that was published and then unpublished: the release stops before writing.
 - npm and crates.io accept a trusted publisher only for an existing package: publish the first
-  version by hand. An npm package that does not exist yet stops the release before it writes anything.
+  version by hand (see *The first release of a project*). A package or crate that does not exist yet stops the release before it writes anything.
 
 ## License
 
