@@ -12,7 +12,7 @@ import { isTrue, loadJson, saveJson, workspace, type Runtime } from '../lib/acti
 import { run } from '../lib/exec.ts';
 import { expandGenerated } from '../lib/generated.ts';
 import { PLAN_FILE, type Plan, type PlannedTarget } from '../lib/plan.ts';
-import { build, crateProblems, dryRun, dryRunCrates, isPublished, oversizedCrates, packageName, versionToPublish, wasUnpublished, type CrateTarget, type Fetch } from '../lib/registries.ts';
+import { build, crateProblems, dryRun, dryRunCrates, isPublished, isNewPackage, oversizedCrates, packageName, versionToPublish, wasUnpublished, type CrateTarget, type Fetch } from '../lib/registries.ts';
 import { ReleaseError } from '../lib/version.ts';
 import { dryRunReport } from './report.ts';
 
@@ -122,8 +122,15 @@ export async function verify(deps: VerifyDeps): Promise<void> {
 
   const pending = plan.targets.filter((t) => !t.published);
   const lost: string[] = [];
+  const created: string[] = [];
   for (const t of pending.filter((p) => p.registry === 'npm')) {
-    if (await wasUnpublished(t.name, plan.version, deps.fetchImpl)) lost.push(t.name);
+    if (await isNewPackage(t.name, deps.fetchImpl)) created.push(t.name);
+    else if (await wasUnpublished(t.name, plan.version, deps.fetchImpl)) lost.push(t.name);
+  }
+  if (created.length > 0) {
+    throw new ReleaseError(
+      `${created.join(', ')} ${created.length > 1 ? 'are' : 'is'} not on npm yet, and trusted publishing only works for an existing package: publish a first version by hand, add this repository and workflow as its trusted publisher on npmjs.com, then run the release again. Nothing was written.`,
+    );
   }
   if (lost.length > 0) {
     throw new ReleaseError(

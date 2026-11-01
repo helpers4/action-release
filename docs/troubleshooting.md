@@ -54,6 +54,12 @@ JSR, a file missing from the package, a wrong name…). Nothing was written.
 A `npm: dir/*` target expects `dir/<package>/package.json` after its `build` command. Check that the
 command writes there (and that the packages are not all `private`). Nothing was written.
 
+### "… is not on npm yet, and trusted publishing only works for an existing package"
+
+npm only lets you configure a trusted publisher for a package that exists. Publish a first version by
+hand (a classic token, or `npx setup-npm-trusted-publish <name>`), add the repository and the workflow as
+its trusted publisher on npmjs.com, then run the release again. Nothing was written.
+
 ### "npm refuses … that version was published and then unpublished"
 
 npm never accepts again a version it published once, even unpublished. Release the next version

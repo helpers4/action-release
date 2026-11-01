@@ -185,7 +185,7 @@ Every message is explained in [docs/troubleshooting.md](docs/troubleshooting.md)
 - Only `dir/*` patterns (npm); the packages must exist after the build.
 - npm refuses for good a version that was published and then unpublished: the release stops before writing.
 - npm and crates.io accept a trusted publisher only for an existing package: publish the first
-  version by hand.
+  version by hand. An npm package that does not exist yet stops the release before it writes anything.
 
 ## License
 

@@ -42,6 +42,14 @@ export async function isPublished(registry: Registry, name: string, version: str
   return Boolean(body.versions && version in body.versions);
 }
 
+/** Whether the registry has never heard of the npm package: no trusted publisher can exist for it. */
+export async function isNewPackage(name: string, fetchImpl: Fetch = fetch): Promise<boolean> {
+  const response = await fetchImpl(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, { headers: { 'user-agent': USER_AGENT, accept: 'application/json' } });
+  if (response.status === 404) return true;
+  if (!response.ok) throw new ReleaseError(`npm answered ${response.status} for ${name}: cannot tell whether the package exists.`);
+  return false;
+}
+
 /**
  * Whether npm published `name@version` once and then lost it (unpublished): npm refuses that exact
  * version for good, so a release of it would fail after the other packages went out.
