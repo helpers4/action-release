@@ -4,8 +4,6 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-The new `publish-release` input leaves the GitHub Release as a draft, for an Action's Marketplace form.
-
 ## [0.5.2] - 2026-11-01
 
 The refusal to move the branch now also points at a classic branch protection, which rulesets hide and which

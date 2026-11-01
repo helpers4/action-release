@@ -359,17 +359,6 @@ describe('commit, publish, finalize', () => {
     await expect(finalize({ runtime, gh })).rejects.toThrow(/v0.2.5 belonged to an immutable Release that was deleted/);
   });
 
-  it('leaves the Release as a draft with publish-release false', async () => {
-    const { runtime, gh } = await prepared();
-    await commit({ runtime, appGh: gh, gh, checkout: () => {} });
-    runtime.env.INPUT_PUBLISH_RELEASE = 'false';
-    const url = await finalize({ runtime, gh });
-    expect(gh.releases).toHaveLength(1);
-    expect(gh.releases[0]!.draft).toBe(true);
-    expect(url).toMatch(/\/releases$/);
-    expect(runtime.outputs['release-url']).toBe(url);
-  });
-
   it('publishes the Release with the notes, as the latest one', async () => {
     const { runtime, gh } = await prepared();
     await commit({ runtime, appGh: gh, gh, checkout: () => {} });
