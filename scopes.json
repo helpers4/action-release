@@ -9,5 +9,6 @@
   "preflight",
   "docs",
   "deps",
-  "CI-CD"
+  "ci",
+  "ai"
 ]
